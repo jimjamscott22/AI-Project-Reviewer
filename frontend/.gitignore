@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Dev-only default (points VITE_API_BASE at localhost, no secrets) — meant to be committed.
+!.env.development
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

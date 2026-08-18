@@ -5,9 +5,9 @@ import { APR_SAMPLE } from './sampleData';
 // LLM (Ollama) for review generation. Until that API is live, every call below
 // falls back to the embedded sample data so the UI works standalone in dev mode.
 export const APR_CONFIG = {
-  apiBase: 'http://raspberrypi.local:8080', // REST API in front of MariaDB (e.g. GET /api/repos)
-  llmBase: 'http://raspberrypi.local:11434', // Ollama
-  llmModel: 'llama3.1',
+  apiBase: import.meta.env.VITE_API_BASE ?? 'http://raspberrypi.local:8080', // REST API in front of MariaDB (e.g. GET /api/repos)
+  llmBase: import.meta.env.VITE_LLM_BASE ?? 'http://raspberrypi.local:11434', // Ollama
+  llmModel: import.meta.env.VITE_LLM_MODEL ?? 'llama3.1',
 };
 
 export function grade(score: number): string {
