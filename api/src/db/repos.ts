@@ -10,6 +10,8 @@ import type {
   SecurityFinding,
   Severity,
   SummaryItemTuple,
+  RepositorySummary,
+  ReviewJobStatus,
 } from '../types.js';
 
 interface RepoReviewRow extends RowDataPacket {
@@ -166,6 +168,7 @@ export interface CreateRepoInput {
   slug: string;
   name: string;
   url: string;
+  canonicalUrl: string;
   visibility?: 'Public' | 'Private';
   language?: string;
   framework?: string;
@@ -178,11 +181,84 @@ function hashHue(seed: string): number {
   return h % 360;
 }
 
-export async function createRepo(input: CreateRepoInput): Promise<{ id: string; name: string; url: string }> {
+export async function createRepo(input: CreateRepoInput): Promise<RepositorySummary> {
   const hue = input.hue ?? hashHue(input.slug);
   await pool.query(
-    'INSERT INTO repos (slug, name, url, visibility, language, framework, hue) VALUES (?, ?, ?, ?, ?, ?, ?)',
-    [input.slug, input.name, input.url, input.visibility ?? 'Public', input.language ?? '', input.framework ?? '', hue],
+    'INSERT INTO repos (slug, name, url, canonical_url, visibility, language, framework, hue) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [input.slug, input.name, input.url, input.canonicalUrl, input.visibility ?? 'Public', input.language ?? '', input.framework ?? '', hue],
   );
-  return { id: input.slug, name: input.name, url: input.url };
+  const created = await getRepositorySummary(input.slug);
+  if (!created) throw new Error(`Repository "${input.slug}" was inserted but could not be read back.`);
+  return created;
+}
+
+interface RepositorySummaryRow extends RowDataPacket {
+  slug: string;
+  name: string;
+  canonical_url: string | null;
+  url: string;
+  connected_at: Date;
+  latest_review_id: number | null;
+  latest_score: number | null;
+  latest_review_at: Date | null;
+  latest_job_id: string | null;
+  latest_job_status: ReviewJobStatus | null;
+  latest_job_error_code: string | null;
+  latest_job_error_message: string | null;
+}
+
+function mapRepositorySummary(row: RepositorySummaryRow): RepositorySummary {
+  return {
+    id: row.slug,
+    name: row.name,
+    url: row.canonical_url ?? row.url,
+    connectedAt: row.connected_at.toISOString(),
+    latestReviewId: row.latest_review_id,
+    latestScore: row.latest_score,
+    latestReviewAt: row.latest_review_at?.toISOString() ?? null,
+    latestJob:
+      row.latest_job_id && row.latest_job_status
+        ? {
+            id: row.latest_job_id,
+            status: row.latest_job_status,
+            error:
+              row.latest_job_error_code || row.latest_job_error_message
+                ? { code: row.latest_job_error_code ?? 'review_failed', message: row.latest_job_error_message ?? 'The review failed.' }
+                : null,
+          }
+        : null,
+  };
+}
+
+async function fetchRepositorySummaryRows(slug?: string): Promise<RepositorySummaryRow[]> {
+  const [rows] = await pool.query<RepositorySummaryRow[]>(
+    `SELECT r.slug, r.name, r.url, r.canonical_url, r.connected_at,
+            rv.id AS latest_review_id, rv.overall_score AS latest_score, rv.generated_at AS latest_review_at,
+            j.id AS latest_job_id, j.status AS latest_job_status,
+            j.error_code AS latest_job_error_code, j.error_message AS latest_job_error_message
+     FROM repos r
+     LEFT JOIN reviews rv ON rv.id = (
+       SELECT id FROM reviews WHERE repo_id = r.id ORDER BY generated_at DESC, id DESC LIMIT 1
+     )
+     LEFT JOIN review_jobs j ON j.id = (
+       SELECT id FROM review_jobs WHERE repo_id = r.id ORDER BY requested_at DESC, id DESC LIMIT 1
+     )
+     ${slug ? 'WHERE r.slug = ?' : ''}
+     ORDER BY r.name`,
+    slug ? [slug] : [],
+  );
+  return rows;
+}
+
+export async function listConnectedRepositories(): Promise<RepositorySummary[]> {
+  return (await fetchRepositorySummaryRows()).map(mapRepositorySummary);
+}
+
+export async function getRepositorySummary(slug: string): Promise<RepositorySummary | null> {
+  const rows = await fetchRepositorySummaryRows(slug);
+  return rows[0] ? mapRepositorySummary(rows[0]) : null;
+}
+
+export async function updateRepositoryMetadata(id: number, language: string, framework: string): Promise<void> {
+  await pool.query('UPDATE repos SET language = ?, framework = ? WHERE id = ?', [language.slice(0, 64), framework.slice(0, 64), id]);
 }

@@ -2,7 +2,7 @@ import { Icon } from './Icon';
 import { scoreVar } from './scoreVar';
 import type { Repo } from '../data/types';
 
-export function InsightCol({ repo }: { repo: Repo }) {
+export function InsightCol({ repo, onViewInsights }: { repo: Repo; onViewInsights: () => void }) {
   return (
     <aside className="apr-insights">
       <div className="apr-row" style={{ justifyContent: 'space-between' }}>
@@ -49,7 +49,7 @@ export function InsightCol({ repo }: { repo: Repo }) {
           </div>
         ))}
       </div>
-      <button className="btn btn-primary btn-block">
+      <button className="btn btn-primary btn-block" onClick={onViewInsights}>
         View full insights <Icon n="arrow-right" size={14} />
       </button>
     </aside>

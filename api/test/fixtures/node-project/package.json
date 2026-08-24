@@ -1,0 +1,7 @@
+{
+  "name": "safe-node-fixture",
+  "private": true,
+  "scripts": { "test": "node -e \"throw new Error('must never execute')\"" },
+  "dependencies": { "react": "18.2.0" },
+  "devDependencies": { "vite": "5.0.0", "typescript": "5.4.0" }
+}

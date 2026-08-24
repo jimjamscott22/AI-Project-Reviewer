@@ -27,14 +27,18 @@ interface ReviewScreenProps {
   setTab: (t: TabId) => void;
   summary: string | null;
   showPanel: boolean;
+  onAddRepo: () => void;
+  onViewRepos: () => void;
+  onViewInsights: () => void;
 }
 
-export function ReviewScreen({ repos, sel, onSel, tab, setTab, summary, showPanel }: ReviewScreenProps) {
+export function ReviewScreen({ repos, sel, onSel, tab, setTab, summary, showPanel, onAddRepo, onViewRepos, onViewInsights }: ReviewScreenProps) {
   const repo = repos.find((r) => r.id === sel) || repos[0];
   const Body = (TABS.find((t) => t[0] === tab) || TABS[0])[3];
+  const repoHref = /^https?:\/\//i.test(repo.url) ? repo.url : `https://${repo.url}`;
   return (
     <div className={'apr-review' + (showPanel ? '' : ' apr-nopanel')}>
-      <RepoRail repos={repos} sel={repo.id} onSel={onSel} />
+      <RepoRail repos={repos} sel={repo.id} onSel={onSel} onAdd={onAddRepo} onViewAll={onViewRepos} />
       <section className="apr-main">
         <div className="card elev-sm apr-pad apr-head">
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -54,7 +58,7 @@ export function ReviewScreen({ repos, sel, onSel, tab, setTab, summary, showPane
                   <b style={{ fontSize: 17 }}>{repo.name}</b>
                   <span className="tag tag-neutral">{repo.vis}</span>
                 </div>
-                <a href="#" onClick={(e) => e.preventDefault()} className="text-muted" style={{ fontSize: 12, color: 'inherit' }}>
+                <a href={repoHref} target="_blank" rel="noreferrer" className="text-muted" style={{ fontSize: 12, color: 'inherit' }}>
                   {repo.url} <Icon n="arrow-square-out" size={11} />
                 </a>
               </div>
@@ -74,7 +78,7 @@ export function ReviewScreen({ repos, sel, onSel, tab, setTab, summary, showPane
         </div>
         <nav className="apr-tabs">
           {TABS.map(([id, ic, l]) => (
-            <button key={id} className={'apr-tab' + (id === tab ? ' apr-tab-on' : '')} onClick={() => setTab(id)}>
+            <button key={id} className={'apr-tab' + (id === tab ? ' apr-tab-on' : '')} aria-current={id === tab ? 'page' : undefined} onClick={() => setTab(id)}>
               <Icon n={ic} size={15} /> {l}
             </button>
           ))}
@@ -87,7 +91,7 @@ export function ReviewScreen({ repos, sel, onSel, tab, setTab, summary, showPane
           <p style={{ margin: 0, fontSize: 14, lineHeight: 1.6 }}>{summary || repo.ai}</p>
         </div>
       </section>
-      {showPanel && <InsightCol repo={repo} />}
+      {showPanel && <InsightCol repo={repo} onViewInsights={onViewInsights} />}
     </div>
   );
 }

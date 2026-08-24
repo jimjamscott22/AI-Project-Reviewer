@@ -10,7 +10,10 @@
     "migrate": "tsx src/db/migrate.ts",
     "seed": "tsx src/db/seed.ts",
     "lint": "oxlint src",
-    "typecheck": "tsc --noEmit -p tsconfig.json"
+    "test": "tsx --test test/*.test.ts",
+    "test:integration": "tsx --test test/integration/task2.test.ts",
+    "test:worker-integration": "tsx --test test/integration/task3.test.ts",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.0",

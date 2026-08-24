@@ -7,16 +7,18 @@ interface RepoRailProps {
   repos: Repo[];
   sel: string;
   onSel: (id: string) => void;
+  onAdd: () => void;
+  onViewAll: () => void;
 }
 
-export function RepoRail({ repos, sel, onSel }: RepoRailProps) {
+export function RepoRail({ repos, sel, onSel, onAdd, onViewAll }: RepoRailProps) {
   const [q, setQ] = useState('');
   const list = repos.filter((r) => r.name.toLowerCase().includes(q.toLowerCase()));
   return (
     <aside className="apr-rail">
       <div className="apr-rail-head">
         <h5 style={{ margin: 0 }}>Repositories</h5>
-        <button className="btn btn-secondary apr-btn-sm">
+        <button className="btn btn-secondary apr-btn-sm" onClick={onAdd}>
           <Icon n="plus" size={13} /> Add Repo
         </button>
       </div>
@@ -41,9 +43,9 @@ export function RepoRail({ repos, sel, onSel }: RepoRailProps) {
           </p>
         )}
       </div>
-      <a className="apr-rail-link" href="#" onClick={(e) => e.preventDefault()}>
+      <button className="apr-rail-link" onClick={onViewAll}>
         View all repositories <Icon n="arrow-right" size={13} />
-      </a>
+      </button>
     </aside>
   );
 }

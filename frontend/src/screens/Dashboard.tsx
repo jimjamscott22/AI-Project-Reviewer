@@ -47,42 +47,44 @@ export function Dashboard({ repos, openReview }: DashboardProps) {
         <h6 className="apr-kicker" style={{ marginBottom: 'var(--space-2)' }}>
           Recent reviews
         </h6>
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Repository</th>
-              <th>Score</th>
-              <th>Grade</th>
-              <th>Top gap</th>
-              <th>Reviewed</th>
-            </tr>
-          </thead>
-          <tbody>
-            {[...repos]
-              .sort((a, b) => b.score - a.score)
-              .map((r) => (
-                <tr key={r.id} style={{ cursor: 'pointer' }} onClick={() => openReview(r.id)}>
-                  <td>
-                    <span className="apr-row" style={{ gap: 8 }}>
-                      <RepoIcon repo={r} size={24} />
-                      {r.name}
-                    </span>
-                  </td>
-                  <td>
-                    <b style={{ color: scoreVar(r.score) }}>{r.score}</b>
-                    <span className="text-muted">/100</span>
-                  </td>
-                  <td>{grade(r.score)}</td>
-                  <td className="text-muted" style={{ fontSize: 13 }}>
-                    {r.portfolio.checks.find((c) => !c[1])?.[0] || '—'}
-                  </td>
-                  <td className="text-muted" style={{ fontSize: 13 }}>
-                    {r.updated}
-                  </td>
-                </tr>
-              ))}
-          </tbody>
-        </table>
+        <div className="apr-table-wrap">
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Repository</th>
+                <th>Score</th>
+                <th>Grade</th>
+                <th>Top gap</th>
+                <th>Reviewed</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...repos]
+                .sort((a, b) => b.score - a.score)
+                .map((r) => (
+                  <tr key={r.id} style={{ cursor: 'pointer' }} onClick={() => openReview(r.id)}>
+                    <td>
+                      <span className="apr-row" style={{ gap: 8 }}>
+                        <RepoIcon repo={r} size={24} />
+                        {r.name}
+                      </span>
+                    </td>
+                    <td>
+                      <b style={{ color: scoreVar(r.score) }}>{r.score}</b>
+                      <span className="text-muted">/100</span>
+                    </td>
+                    <td>{grade(r.score)}</td>
+                    <td className="text-muted" style={{ fontSize: 13 }}>
+                      {r.portfolio.checks.find((c) => !c[1])?.[0] || '—'}
+                    </td>
+                    <td className="text-muted" style={{ fontSize: 13 }}>
+                      {r.updated}
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
       </div>
       <div className="card elev-sm apr-pad">
         <h6 className="apr-kicker" style={{ marginBottom: 'var(--space-3)' }}>

@@ -7,7 +7,7 @@ export type PortfolioCheck = [label: string, done: 0 | 1];
 export type QualityMetric = [label: string, value: string | number];
 export type QualityFinding = [severity: Severity, text: string];
 export type SecurityFinding = [severity: Severity, title: string, detail: string];
-export type DependencyStatus = 'ok' | 'outdated' | 'major';
+export type DependencyStatus = 'ok' | 'outdated' | 'major' | 'unknown';
 export type DependencyRow = [name: string, installed: string, latest: string, status: DependencyStatus];
 
 export interface Portfolio {

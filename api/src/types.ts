@@ -10,7 +10,7 @@ export type PortfolioCheck = [label: string, done: 0 | 1];
 export type QualityMetric = [label: string, value: string];
 export type QualityFinding = [severity: Severity, text: string];
 export type SecurityFinding = [severity: Severity, title: string, detail: string];
-export type DependencyStatus = 'ok' | 'outdated' | 'major';
+export type DependencyStatus = 'ok' | 'outdated' | 'major' | 'unknown';
 export type DependencyRow = [name: string, installed: string, latest: string, status: DependencyStatus];
 
 export interface Portfolio {
@@ -50,4 +50,52 @@ export interface Repo {
   structure: string[];
   deps: DependencyRow[];
   security: SecurityFinding[];
+}
+
+export type ReviewJobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
+export type ReviewJobStage = 'queued' | 'cloning' | 'analyzing' | 'narrating' | 'persisting' | 'complete';
+
+export interface ReviewJob {
+  id: string;
+  repoId: string;
+  status: ReviewJobStatus;
+  stage: ReviewJobStage;
+  createdAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  reviewId: number | null;
+  error: { code: string; message: string } | null;
+}
+
+export interface RepositorySummary {
+  id: string;
+  name: string;
+  url: string;
+  connectedAt: string;
+  latestReviewId: number | null;
+  latestScore: number | null;
+  latestReviewAt: string | null;
+  latestJob: Pick<ReviewJob, 'id' | 'status' | 'error'> | null;
+}
+
+export interface ReviewResult {
+  overallScore: number;
+  aiSummary: string;
+  summary: SummaryItemTuple[];
+  categories: CategoryTuple[];
+  strengths: string[];
+  improvements: string[];
+  nextSteps: string[];
+  portfolio: Portfolio;
+  quality: Quality;
+  structure: string[];
+  dependencies: DependencyRow[];
+  security: SecurityFinding[];
+  stats: {
+    loc: number;
+    openIssues: number;
+    pullRequests: number;
+    contributors: number;
+    commits14d: number;
+  };
 }

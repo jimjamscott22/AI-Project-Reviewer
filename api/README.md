@@ -5,7 +5,7 @@ Node + TypeScript + Fastify + `mysql2/promise`. Browsers can't speak the
 MariaDB wire protocol directly, so this layer is what the frontend actually
 talks to.
 
-## Status: M2 — API + DB
+## Status: M3 deterministic review pipeline
 
 - MariaDB schema (`src/db/schema.sql`) implementing the plan's data model,
   extended with two tables the plan sketch didn't spell out
@@ -18,13 +18,25 @@ talks to.
   tables into the exact JSON shape `frontend/src/data/sampleData.ts` already
   produces (verified by round-tripping the same five sample repos through
   the DB — see `src/db/seedData.ts`).
-- `POST /api/repos` — connect a repo (`{ url, name?, visibility?, language?,
-  framework? }`). Repos with no review yet are left out of `GET /api/repos`
-  — there's nothing to render for them until the review pipeline (M3) runs.
+- `POST /api/repos` — connect a public GitHub repository. URLs are canonicalized;
+  private repositories and credential-bearing/non-GitHub URLs are rejected.
+- `GET /api/repositories` — management listing including unreviewed repositories
+  and their latest durable job state.
+- `POST /api/repos/:id/rerun`, `GET /api/jobs/:id` — create/reuse and poll a
+  durable MariaDB review job. One queued/running job is allowed per repository,
+  and interrupted running jobs are requeued on API startup.
+- Repos with no review yet are still left out of `GET /api/repos` — there is
+  nothing for the review UI to render until the worker persists the first review.
+- A single in-process worker clones or refreshes validated public GitHub caches,
+  inventories bounded text files, skips symlinks/binaries/generated content,
+  checks npm/Python dependency freshness and redacted credential risks, applies
+  the documented weighted rubric, and transactionally persists the full review.
+- Registry outages produce `unknown` dependency state. Clone, filesystem,
+  registry, optional gitleaks, and Git metadata work all have configured bounds.
+  Repository package scripts and configuration are never executed.
 
-Not in this milestone: `POST /api/repos/:id/rerun` and `GET /api/jobs/:id`
-(the review pipeline and re-run flow are M3), the LLM narrative step (M4),
-and docker-compose packaging (M5).
+Not implemented yet: the Ollama narrative step (M4), repository/settings job UI,
+and docker-compose packaging/authentication (M5).
 
 ## Develop
 
@@ -46,6 +58,7 @@ Then point the frontend at it — `frontend/.env.development` already sets
 npm run build && npm start  # compiled, for parity with the Pi deployment
 npm run lint
 npm run typecheck
+npm test
 ```
 
 ## Structure
@@ -56,6 +69,11 @@ npm run typecheck
 - `src/db/seedData.ts` / `src/db/seed.ts` — the ported sample data and the
   script that loads it.
 - `src/routes/` — Fastify route modules (`health.ts`, `repos.ts`).
+- `src/review/workspace.ts` — bounded argument-array Git clone/cache handling.
+- `src/review/analyze.ts`, `dependencies.ts`, `security.ts` — read-only static
+  evidence gathering with filesystem, network, output, and redaction limits.
+- `src/review/scoring.ts` — the single deterministic weighted rubric.
+- `src/review/worker.ts` — sequential durable-job execution and persistence.
 - `src/lib/` — small helpers: relative-time formatting, grade thresholds
   (kept in sync with the frontend's `scoreVar()` — ≥65 green, 40–64 amber,
   <40 red), slugify.

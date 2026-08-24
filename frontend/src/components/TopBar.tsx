@@ -22,21 +22,21 @@ export function TopBar({ screen, go, theme, setTheme, rerun, running, generated,
     <header className="apr-top">
       {screen === 'reviews' ? (
         <button className="btn btn-ghost" style={{ color: 'inherit' }} onClick={() => go('dashboard')}>
-          <Icon n="arrow-left" size={15} /> Back to reviews
+          <Icon n="arrow-left" size={15} /> Back to dashboard
         </button>
       ) : (
         <h5 style={{ margin: 0 }}>{TITLES[screen]}</h5>
       )}
-      <span style={{ flex: 1 }} />
-      <Chip ok={db} icon="database" label="mariadb @ pi" />
-      <Chip ok={llm} icon="cpu" label={APR_CONFIG.llmModel + ' (local)'} />
+      <span className="apr-top-spacer" />
+      <Chip ok={db} icon="database" label="mariadb @ pi" offlineLabel="MariaDB is unreachable; embedded demo reviews are displayed." />
+      <Chip ok={llm} icon="cpu" label={APR_CONFIG.llmModel + ' (local)'} offlineLabel="Ollama is unreachable; review summaries use fallback text." />
       {screen === 'reviews' && (
-        <span className="text-muted" style={{ fontSize: 13 }}>
+        <span className="text-muted apr-generated" style={{ fontSize: 13 }}>
           Review generated <b style={{ color: 'var(--color-text)', fontWeight: 500 }}>{generated}</b>
         </span>
       )}
       {screen === 'reviews' && (
-        <button className="btn btn-secondary" onClick={rerun} disabled={running}>
+        <button className="btn btn-secondary apr-review-action" onClick={rerun} disabled={running}>
           <Icon n="arrows-clockwise" size={15} style={running ? { animation: 'apr-spin 1s linear infinite' } : undefined} />{' '}
           {running ? 'Reviewing…' : 'Re-run Review'}
         </button>

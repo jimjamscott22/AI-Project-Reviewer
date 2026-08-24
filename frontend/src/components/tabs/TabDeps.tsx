@@ -5,6 +5,7 @@ const TONE: Record<DependencyStatus, [string, string]> = {
   ok: ['var(--apr-good)', 'Up to date'],
   outdated: ['var(--apr-warn)', 'Update available'],
   major: ['var(--apr-bad)', 'Major behind'],
+  unknown: ['var(--color-neutral-400)', 'Not checked'],
 };
 
 export function TabDeps({ repo }: { repo: Repo }) {
@@ -26,7 +27,7 @@ export function TabDeps({ repo }: { repo: Repo }) {
               <td>{c}</td>
               <td>{l}</td>
               <td style={{ color: TONE[s][0] }}>
-                <Icon n={s === 'ok' ? 'check' : 'arrow-up'} size={13} /> {TONE[s][1]}
+                <Icon n={s === 'ok' ? 'check' : s === 'unknown' ? 'question' : 'arrow-up'} size={13} /> {TONE[s][1]}
               </td>
             </tr>
           ))}

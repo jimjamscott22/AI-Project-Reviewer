@@ -7,7 +7,7 @@ The project is designed to run on a local network with MariaDB for persistence a
 ![AI Project Reviewer review screen](design_handoff_ai_project_reviewer/screenshots/01-review-dark.png)
 
 > [!IMPORTANT]
-> The project is under active development. The frontend and MariaDB-backed read API are implemented. Automated repository cloning, static analysis, persisted review jobs, and deployment packaging are still on the roadmap. Until those pieces land, the application uses seeded reviews or embedded sample data.
+> The project is under active development. The frontend, MariaDB API, repository registration, durable review jobs, and deterministic review worker are implemented. Ollama integration inside the persisted pipeline, repository-management UI, authentication, and deployment packaging are still on the roadmap.
 
 ## What Works Today
 
@@ -18,10 +18,13 @@ The project is designed to run on a local network with MariaDB for persistence a
 - Responsive dark and light themes with a saved theme preference
 - Fastify REST API backed by MariaDB
 - Idempotent schema migration and repeatable sample-data seeding
+- Public GitHub repository registration with durable, deduplicated review jobs
+- Sequential restart-safe worker with bounded clone/cache updates and deterministic persisted reviews
+- Safe static inventory, dependency freshness, secret-risk, Git activity, and weighted scoring checks without executing repository code
 - Standalone frontend fallback when the API is unavailable
 - Optional direct Ollama summary generation from the review screen
 
-The Repositories and Settings screens are currently placeholders. The API can register a repository, but newly registered repositories do not appear in the review list until a review record exists.
+The Repositories and Settings screens are currently placeholders. Newly registered repositories appear through the management API immediately, and API-enqueued jobs are processed by the worker, but the frontend job-management and polling experience is scheduled for M5.
 
 ## Screenshots
 
@@ -40,7 +43,10 @@ React + Vite frontend
     |-- GET /api/repos -----------------> Fastify API -----> MariaDB
     |-- GET /api/repos/:id                  |
     |-- POST /api/repos                     +-- schema migration
-    |                                       +-- sample-data seed
+    |-- POST /api/repos/:id/rerun           +-- durable sequential worker
+    |                                           |-- bounded public Git clone/cache
+    |                                           |-- safe deterministic analysis
+    |                                           +-- registry freshness lookups
     |
     +-- POST /api/generate ------------> Ollama (optional, local)
 
@@ -125,6 +131,17 @@ Copy [`api/.env.example`](api/.env.example) to `api/.env` and configure:
 | `DB_USER` | `apr` | MariaDB user |
 | `DB_PASSWORD` | `apr` | MariaDB password |
 | `DB_NAME` | `apr` | Database created and used by the API |
+| `REPO_WORK_ROOT` | `.review-work` | Validated child directory for persistent public-repository caches |
+| `REPO_CLONE_TIMEOUT_MS` | `120000` | Git clone/fetch/reset command timeout |
+| `REPO_COMMAND_OUTPUT_BYTES` | `65536` | Git/tool output cap |
+| `ANALYSIS_TIMEOUT_MS` | `120000` | Filesystem-analysis wall-clock limit |
+| `ANALYSIS_MAX_FILES` | `5000` | Maximum analyzable text files |
+| `ANALYSIS_MAX_TOTAL_BYTES` | `26214400` | Maximum aggregate text bytes |
+| `ANALYSIS_MAX_FILE_BYTES` | `262144` | Per-file text limit; larger files are skipped |
+| `REGISTRY_TIMEOUT_MS` | `3000` | Timeout for each npm/PyPI lookup |
+| `REGISTRY_MAX_PACKAGES` | `30` | Maximum dependency lookups per review |
+| `WORKER_POLL_MS` | `1000` | Durable queue poll interval |
+| `GITLEAKS_PATH` | empty | Optional explicitly pinned gitleaks binary path |
 
 ### Frontend
 
@@ -147,7 +164,10 @@ The implemented API surface is:
 | `GET` | `/api/health` | Check API and database availability |
 | `GET` | `/api/repos` | List repositories with their latest reviews |
 | `GET` | `/api/repos/:id` | Get one repository and its latest review |
+| `GET` | `/api/repositories` | List every registered repository, including unreviewed entries and latest job state |
 | `POST` | `/api/repos` | Register repository metadata |
+| `POST` | `/api/repos/:id/rerun` | Create or reuse the repository's active durable review job |
+| `GET` | `/api/jobs/:id` | Poll durable review-job state |
 
 Example:
 
@@ -156,7 +176,7 @@ curl http://localhost:8080/api/health
 curl http://localhost:8080/api/repos
 ```
 
-Registering a repository currently stores its metadata only:
+Register a public GitHub repository:
 
 ```bash
 curl -X POST http://localhost:8080/api/repos \
@@ -164,7 +184,7 @@ curl -X POST http://localhost:8080/api/repos \
   -d '{"url":"https://github.com/example/project"}'
 ```
 
-The planned review-job endpoints are not implemented yet.
+Registration canonicalizes public `https://github.com/owner/repository` URLs. Private repositories, credentials, query strings, and non-GitHub hosts are rejected. While the API process is running, a rerun request is claimed by its single sequential worker and persisted as a complete deterministic review. The worker never runs repository scripts or loads repository configuration as code.
 
 ## Development Commands
 
@@ -213,7 +233,7 @@ The files under [`design_handoff_ai_project_reviewer/`](design_handoff_ai_projec
 
 - [x] M1: React frontend and routed review experience
 - [x] M2: MariaDB schema, seed data, and repository read API
-- [ ] M3: Repository ingestion, static analysis, review jobs, and persisted reruns
+- [x] M3: Repository ingestion, static analysis, review jobs, and persisted reruns
 - [ ] M4: Ollama-backed narrative generation integrated into the review pipeline
 - [ ] M5: Docker Compose packaging and Raspberry Pi deployment
 

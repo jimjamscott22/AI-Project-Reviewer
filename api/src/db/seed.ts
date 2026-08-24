@@ -1,6 +1,7 @@
 import mysql from 'mysql2/promise';
 import { config } from '../config.js';
 import { SEED_REPOS } from './seedData.js';
+import { canonicalizeGitHubUrl } from '../lib/github.js';
 import { grade } from '../lib/grade.js';
 
 async function main() {
@@ -18,10 +19,11 @@ async function main() {
   for (const repo of SEED_REPOS) {
     const generatedAt = new Date(Date.now() - repo.ageMs);
     const connectedAt = new Date(generatedAt.getTime() - 24 * 60 * 60 * 1000);
+    const canonicalUrl = canonicalizeGitHubUrl(repo.url.startsWith('https://') ? repo.url : `https://${repo.url}`).canonicalUrl;
 
     const [repoResult] = await conn.query<mysql.ResultSetHeader>(
-      'INSERT INTO repos (slug, name, url, visibility, language, framework, hue, connected_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [repo.id, repo.name, repo.url, repo.vis, repo.lang, repo.framework, repo.hue, connectedAt],
+      'INSERT INTO repos (slug, name, url, canonical_url, visibility, language, framework, hue, connected_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [repo.id, repo.name, repo.url, canonicalUrl, repo.vis, repo.lang, repo.framework, repo.hue, connectedAt],
     );
     const repoId = repoResult.insertId;
 

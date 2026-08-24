@@ -37,7 +37,7 @@ export function Sidebar({ screen, go }: SidebarProps) {
         <p style={{ fontSize: 13, margin: '4px 0 var(--space-3)', opacity: 0.85 }}>
           Connect a repo to get automated reviews on new commits.
         </p>
-        <button className="btn btn-primary" style={{ alignSelf: 'flex-start' }}>
+        <button className="btn btn-primary" style={{ alignSelf: 'flex-start' }} onClick={() => go('repos')}>
           <Icon n="github-logo" size={15} /> Connect GitHub
         </button>
       </div>

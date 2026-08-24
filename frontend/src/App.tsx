@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom';
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
+import { EmptyState } from './components/EmptyState';
 import { Dashboard } from './screens/Dashboard';
 import { InsightsScreen } from './screens/InsightsScreen';
 import { ReviewRoute } from './screens/ReviewRoute';
@@ -21,6 +22,7 @@ function screenForPath(pathname: string): ScreenId {
 export default function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem('apr-theme') as 'dark' | 'light') || 'dark');
   const [repos, setRepos] = useState<Repo[]>(APR_SAMPLE);
+  const [loading, setLoading] = useState(true);
   const [db, setDb] = useState(false);
   const [llm, setLlm] = useState(false);
   const [running, setRunning] = useState(false);
@@ -35,11 +37,22 @@ export default function App() {
   }, [theme]);
 
   useEffect(() => {
-    load().then((r) => {
-      setDb(r.live);
-      if (r.live) setRepos(r.repos);
+    let active = true;
+    load()
+      .then((r) => {
+        if (!active) return;
+        setDb(r.live);
+        setRepos(r.repos);
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    ping(APR_CONFIG.llmBase).then((live) => {
+      if (active) setLlm(live);
     });
-    ping(APR_CONFIG.llmBase).then(setLlm);
+    return () => {
+      active = false;
+    };
   }, []);
 
   const screen = screenForPath(location.pathname);
@@ -48,13 +61,43 @@ export default function App() {
 
   const go = (s: ScreenId) => {
     if (s === 'dashboard') navigate('/');
-    else if (s === 'reviews') navigate('/reviews/' + (selRepoId ?? repos[0]?.id ?? ''));
+    else if (s === 'reviews') {
+      const reviewId = selRepoId ?? repos[0]?.id;
+      navigate(reviewId ? '/reviews/' + encodeURIComponent(reviewId) : '/repos');
+    }
     else navigate('/' + s);
   };
 
   const openReview = (id: string) => {
     setSummary(null);
-    navigate('/reviews/' + id);
+    navigate('/reviews/' + encodeURIComponent(id));
+  };
+
+  const withReviewData = (content: ReactNode) => {
+    if (loading) {
+      return <EmptyState icon="arrows-clockwise" title="Loading reviews" body="Checking the local review API…" busy />;
+    }
+    if (!repos.length) {
+      return (
+        <EmptyState
+          icon="git-branch"
+          title="No reviews yet"
+          body="Connect a repository and run its first review to populate this workspace."
+          actionLabel="View repositories"
+          onAction={() => go('repos')}
+        />
+      );
+    }
+    return (
+      <>
+        {!db && (
+          <div className="apr-data-notice" role="status">
+            Embedded demo reviews are shown because the local MariaDB API is unavailable.
+          </div>
+        )}
+        {content}
+      </>
+    );
   };
 
   const rerun = async () => {
@@ -74,11 +117,34 @@ export default function App() {
       <div className="apr-body">
         <TopBar screen={screen} go={go} theme={theme} setTheme={setTheme} rerun={rerun} running={running} generated={generated} db={db} llm={llm} />
         <Routes>
-          <Route path="/" element={<Dashboard repos={repos} openReview={openReview} />} />
+          <Route path="/" element={withReviewData(<Dashboard repos={repos} openReview={openReview} />)} />
           <Route path="/repos" element={<Stub label="Repositories" />} />
-          <Route path="/reviews" element={<Navigate to={`/reviews/${repos[0]?.id ?? ''}`} replace />} />
-          <Route path="/reviews/:repoId" element={<ReviewRoute repos={repos} summary={summary} onSel={openReview} />} />
-          <Route path="/insights" element={<InsightsScreen repos={repos} openReview={openReview} />} />
+          <Route
+            path="/reviews"
+            element={
+              loading ? (
+                <EmptyState icon="arrows-clockwise" title="Loading reviews" body="Checking the local review API…" busy />
+              ) : repos[0] ? (
+                <Navigate to={`/reviews/${encodeURIComponent(repos[0].id)}`} replace />
+              ) : (
+                <Navigate to="/repos" replace />
+              )
+            }
+          />
+          <Route
+            path="/reviews/:repoId"
+            element={withReviewData(
+              <ReviewRoute
+                repos={repos}
+                summary={summary}
+                onSel={openReview}
+                onAddRepo={() => go('repos')}
+                onViewRepos={() => go('repos')}
+                onViewInsights={() => go('insights')}
+              />,
+            )}
+          />
+          <Route path="/insights" element={withReviewData(<InsightsScreen repos={repos} openReview={openReview} />)} />
           <Route path="/settings" element={<Stub label="Settings" />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
