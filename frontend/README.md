@@ -5,7 +5,7 @@ React + Vite + TypeScript frontend, ported from the design handoff prototype in
 `../design_handoff_ai_project_reviewer/IMPLEMENTATION_PLAN.md` for the full spec
 and backend plan (MariaDB + Ollama on a Raspberry Pi).
 
-## Status: M1 — static UI
+## Status: responsive review UI with API-owned review generation
 
 Dashboard, Review (5 tabs: AI Review, Code Quality, Structure, Dependencies,
 Security), and Insights screens are fully built and routed
@@ -13,10 +13,10 @@ Security), and Insights screens are fully built and routed
 backed by the embedded sample data (`src/data/sampleData.ts`). Repositories
 and Settings are stubs, matching the prototype.
 
-`src/data/api.ts` already tries the real endpoints
-(`GET /api/repos`, Ollama `/api/generate`) first and falls back to sample data
-when they're unreachable — so the UI runs standalone today and picks up the
-real backend automatically once M2/M3 land.
+`src/data/api.ts` uses only the Fastify API for reviews, health, and rerun
+requests. Ollama is owned by the API worker; browser code never contacts the
+model port directly. The current standalone fallback remains embedded sample
+data until the repository-management milestone replaces it with opt-in demo mode.
 
 ## Develop
 

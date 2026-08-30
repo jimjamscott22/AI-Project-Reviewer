@@ -1,63 +1,57 @@
-import type { Repo } from './types';
+import type { HealthStatus, Repo } from './types';
 import { APR_SAMPLE } from './sampleData';
 
-// Backend plan: MariaDB on the Raspberry Pi behind a small REST API, plus a local
-// LLM (Ollama) for review generation. Until that API is live, every call below
-// falls back to the embedded sample data so the UI works standalone in dev mode.
+// The browser talks only to Fastify. Repository review and Ollama access remain
+// behind that service boundary so local model ports are never exposed to UI code.
 export const APR_CONFIG = {
   apiBase: import.meta.env.VITE_API_BASE ?? 'http://raspberrypi.local:8080', // REST API in front of MariaDB (e.g. GET /api/repos)
-  llmBase: import.meta.env.VITE_LLM_BASE ?? 'http://raspberrypi.local:11434', // Ollama
-  llmModel: import.meta.env.VITE_LLM_MODEL ?? 'llama3.1',
 };
 
 export function grade(score: number): string {
   return score >= 80 ? 'Excellent' : score >= 65 ? 'Good' : score >= 50 ? 'Fair' : 'Needs work';
 }
 
-export async function ping(url: string): Promise<boolean> {
+export async function ping(): Promise<HealthStatus | null> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 2_000);
   try {
-    const c = new AbortController();
-    setTimeout(() => c.abort(), 1500);
-    const r = await fetch(url, { signal: c.signal, mode: 'cors' });
-    return r.ok;
+    const response = await fetch(APR_CONFIG.apiBase + '/api/health', { signal: controller.signal, mode: 'cors' });
+    return response.ok ? await response.json() as HealthStatus : null;
   } catch {
-    return false;
+    return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 
 export async function load(): Promise<{ live: boolean; repos: Repo[] }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 1_500);
   try {
-    const c = new AbortController();
-    setTimeout(() => c.abort(), 1500);
-    const r = await fetch(APR_CONFIG.apiBase + '/api/repos', { signal: c.signal });
+    const r = await fetch(APR_CONFIG.apiBase + '/api/repos', { signal: controller.signal });
     if (r.ok) return { live: true, repos: await r.json() };
   } catch {
     // fall through to sample data
+  } finally {
+    clearTimeout(timer);
   }
   return { live: false, repos: APR_SAMPLE };
 }
 
-export async function rerun(repo: Repo): Promise<{ live: boolean; summary: string }> {
+export async function rerun(repo: Repo): Promise<{ queued: boolean; summary: string }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8_000);
   try {
-    const c = new AbortController();
-    setTimeout(() => c.abort(), 8000);
-    const r = await fetch(APR_CONFIG.llmBase + '/api/generate', {
+    const response = await fetch(`${APR_CONFIG.apiBase}/api/repos/${encodeURIComponent(repo.id)}/rerun`, {
       method: 'POST',
-      signal: c.signal,
+      signal: controller.signal,
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({
-        model: APR_CONFIG.llmModel,
-        stream: false,
-        prompt: 'In 2 sentences, summarize this code review: ' + JSON.stringify({ name: repo.name, scores: repo.cats, gaps: repo.improves }),
-      }),
     });
-    if (r.ok) {
-      const j = await r.json();
-      if (j.response) return { live: true, summary: j.response.trim() };
-    }
+    if (response.ok) return { queued: true, summary: 'A persisted review has been queued. Its updated narrative will appear after the worker completes.' };
   } catch {
-    // fall through to simulated response
+    // Return the existing persisted narrative with an honest queue failure.
+  } finally {
+    clearTimeout(timer);
   }
-  await new Promise((res) => setTimeout(res, 1400));
-  return { live: false, summary: repo.ai };
+  return { queued: false, summary: repo.ai };
 }

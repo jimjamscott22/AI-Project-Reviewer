@@ -5,14 +5,16 @@ Node + TypeScript + Fastify + `mysql2/promise`. Browsers can't speak the
 MariaDB wire protocol directly, so this layer is what the frontend actually
 talks to.
 
-## Status: M3 deterministic review pipeline
+## Status: M4 persisted local narrative pipeline
 
 - MariaDB schema (`src/db/schema.sql`) implementing the plan's data model,
   extended with two tables the plan sketch didn't spell out
   (`review_summary_items` for the "Project Summary" cards, and
   `portfolio_readiness` for the verdict/blurb/footer) — see the comments at
   the top of that file.
-- `GET /api/health` — DB connectivity check.
+- `GET /api/health` — DB, worker, and non-secret Ollama capability state.
+- `GET /api/settings`, `PUT /api/settings` — validated server-side Ollama base
+  URL/model settings. An empty base URL disables Ollama calls.
 - `GET /api/repos`, `GET /api/repos/:id` — the reviews read path: repos
   joined with their latest review, reassembled from the normalized child
   tables into the exact JSON shape `frontend/src/data/sampleData.ts` already
@@ -34,9 +36,12 @@ talks to.
 - Registry outages produce `unknown` dependency state. Clone, filesystem,
   registry, optional gitleaks, and Git metadata work all have configured bounds.
   Repository package scripts and configuration are never executed.
+- The worker sends only bounded deterministic metadata/findings to Ollama,
+  requires a clamped JSON narrative, retries malformed JSON once, and persists
+  the deterministic template when Ollama is disabled, unreachable, slow, or invalid.
 
-Not implemented yet: the Ollama narrative step (M4), repository/settings job UI,
-and docker-compose packaging/authentication (M5).
+Not implemented yet: repository/settings job UI, frontend polling,
+and docker-compose packaging/authentication.
 
 ## Develop
 
@@ -73,6 +78,8 @@ npm test
 - `src/review/analyze.ts`, `dependencies.ts`, `security.ts` — read-only static
   evidence gathering with filesystem, network, output, and redaction limits.
 - `src/review/scoring.ts` — the single deterministic weighted rubric.
+- `src/review/narrative.ts` — bounded Ollama JSON generation, validation,
+  malformed-output retry, health probe, and deterministic fallback.
 - `src/review/worker.ts` — sequential durable-job execution and persistence.
 - `src/lib/` — small helpers: relative-time formatting, grade thresholds
   (kept in sync with the frontend's `scoreVar()` — ≥65 green, 40–64 amber,

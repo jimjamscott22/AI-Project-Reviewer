@@ -1,5 +1,6 @@
 import 'dotenv/config';
 import path from 'node:path';
+import { normalizeOllamaBaseUrl, normalizeOllamaModel } from './lib/ollamaSettings.js';
 
 function required(name: string, fallback: string): string {
   return process.env[name] ?? fallback;
@@ -36,5 +37,13 @@ export const config = {
     registryMaxPackages: boundedInteger('REGISTRY_MAX_PACKAGES', 30, 0, 200),
     workerPollMs: boundedInteger('WORKER_POLL_MS', 1_000, 100, 60_000),
     gitleaksPath: required('GITLEAKS_PATH', '').trim(),
+  },
+  ollama: {
+    baseUrl: normalizeOllamaBaseUrl(required('OLLAMA_BASE_URL', 'http://localhost:11434'), 'OLLAMA_BASE_URL'),
+    model: normalizeOllamaModel(required('OLLAMA_MODEL', 'llama3.1'), 'OLLAMA_MODEL'),
+    timeoutMs: boundedInteger('OLLAMA_TIMEOUT_MS', 45_000, 500, 300_000),
+    healthTimeoutMs: boundedInteger('OLLAMA_HEALTH_TIMEOUT_MS', 1_500, 100, 30_000),
+    maxPromptBytes: boundedInteger('OLLAMA_MAX_PROMPT_BYTES', 12_288, 1_024, 131_072),
+    maxResponseBytes: boundedInteger('OLLAMA_MAX_RESPONSE_BYTES', 65_536, 1_024, 1_048_576),
   },
 };

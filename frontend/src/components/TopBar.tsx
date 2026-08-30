@@ -1,6 +1,5 @@
 import { Icon } from './Icon';
 import { Chip } from './Chip';
-import { APR_CONFIG } from '../data/api';
 import type { ScreenId } from '../data/types';
 
 const TITLES: Partial<Record<ScreenId, string>> = { dashboard: 'Dashboard', repos: 'Repositories', insights: 'Insights', settings: 'Settings' };
@@ -15,9 +14,10 @@ interface TopBarProps {
   generated: string;
   db: boolean;
   llm: boolean;
+  llmModel: string;
 }
 
-export function TopBar({ screen, go, theme, setTheme, rerun, running, generated, db, llm }: TopBarProps) {
+export function TopBar({ screen, go, theme, setTheme, rerun, running, generated, db, llm, llmModel }: TopBarProps) {
   return (
     <header className="apr-top">
       {screen === 'reviews' ? (
@@ -29,7 +29,7 @@ export function TopBar({ screen, go, theme, setTheme, rerun, running, generated,
       )}
       <span className="apr-top-spacer" />
       <Chip ok={db} icon="database" label="mariadb @ pi" offlineLabel="MariaDB is unreachable; embedded demo reviews are displayed." />
-      <Chip ok={llm} icon="cpu" label={APR_CONFIG.llmModel + ' (local)'} offlineLabel="Ollama is unreachable; review summaries use fallback text." />
+      <Chip ok={llm} icon="cpu" label={llmModel + ' (local)'} offlineLabel="Ollama is unreachable or disabled; review summaries use API fallback text." />
       {screen === 'reviews' && (
         <span className="text-muted apr-generated" style={{ fontSize: 13 }}>
           Review generated <b style={{ color: 'var(--color-text)', fontWeight: 500 }}>{generated}</b>

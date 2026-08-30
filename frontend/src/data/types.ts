@@ -49,5 +49,16 @@ export interface Repo {
   security: SecurityFinding[];
 }
 
+export interface HealthStatus {
+  status: 'ok' | 'degraded';
+  db: boolean;
+  worker: boolean;
+  ollama: {
+    enabled: boolean;
+    reachable: boolean;
+    model: string;
+  };
+}
+
 export type ScreenId = 'dashboard' | 'repos' | 'reviews' | 'insights' | 'settings';
 export type TabId = 'ai' | 'quality' | 'structure' | 'deps' | 'security';

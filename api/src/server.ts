@@ -4,6 +4,7 @@ import { config } from './config.js';
 import { healthRoutes } from './routes/health.js';
 import { jobRoutes } from './routes/jobs.js';
 import { repoRoutes } from './routes/repos.js';
+import { settingsRoutes } from './routes/settings.js';
 
 const DATABASE_ERROR_CODES = new Set([
   'ECONNREFUSED',
@@ -56,6 +57,7 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
   await app.register(healthRoutes);
   await app.register(repoRoutes);
   await app.register(jobRoutes);
+  await app.register(settingsRoutes);
 
   return app;
 }

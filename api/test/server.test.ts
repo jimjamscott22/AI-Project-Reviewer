@@ -96,3 +96,21 @@ test('the real repository route uses the database-unavailable envelope', async (
     await app.close();
   }
 });
+
+test('settings reject credentials, unsupported schemes, and invalid model names before touching the database', async () => {
+  const app = await buildServer({ logger: false });
+  try {
+    for (const payload of [
+      { ollamaBaseUrl: 'file:///tmp/ollama', ollamaModel: 'llama3.1' },
+      { ollamaBaseUrl: 'http://user:secret@localhost:11434', ollamaModel: 'llama3.1' },
+      { ollamaBaseUrl: 'https://example.com', ollamaModel: 'llama3.1' },
+      { ollamaBaseUrl: 'http://localhost:11434', ollamaModel: 'bad model name' },
+    ]) {
+      const response = await app.inject({ method: 'PUT', url: '/api/settings', payload });
+      assert.equal(response.statusCode, 400);
+      assert.equal(response.json().error, 'invalid_settings');
+    }
+  } finally {
+    await app.close();
+  }
+});

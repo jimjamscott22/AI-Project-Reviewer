@@ -13,6 +13,7 @@
     "test": "tsx --test test/*.test.ts",
     "test:integration": "tsx --test test/integration/task2.test.ts",
     "test:worker-integration": "tsx --test test/integration/task3.test.ts",
+    "test:ollama-integration": "tsx --test test/integration/task4.test.ts",
     "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json"
   },
   "dependencies": {

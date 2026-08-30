@@ -7,7 +7,7 @@ The project is designed to run on a local network with MariaDB for persistence a
 ![AI Project Reviewer review screen](design_handoff_ai_project_reviewer/screenshots/01-review-dark.png)
 
 > [!IMPORTANT]
-> The project is under active development. The frontend, MariaDB API, repository registration, durable review jobs, and deterministic review worker are implemented. Ollama integration inside the persisted pipeline, repository-management UI, authentication, and deployment packaging are still on the roadmap.
+> The project is under active development. The frontend, MariaDB API, repository registration, durable review jobs, deterministic analysis, and bounded Ollama narrative pipeline are implemented. Repository-management UI, authentication, and deployment packaging are still on the roadmap.
 
 ## What Works Today
 
@@ -22,7 +22,7 @@ The project is designed to run on a local network with MariaDB for persistence a
 - Sequential restart-safe worker with bounded clone/cache updates and deterministic persisted reviews
 - Safe static inventory, dependency freshness, secret-risk, Git activity, and weighted scoring checks without executing repository code
 - Standalone frontend fallback when the API is unavailable
-- Optional direct Ollama summary generation from the review screen
+- Optional API-owned Ollama narratives with strict validation, one malformed-output retry, and deterministic fallback
 
 The Repositories and Settings screens are currently placeholders. Newly registered repositories appear through the management API immediately, and API-enqueued jobs are processed by the worker, but the frontend job-management and polling experience is scheduled for M5.
 
@@ -46,12 +46,11 @@ React + Vite frontend
     |-- POST /api/repos/:id/rerun           +-- durable sequential worker
     |                                           |-- bounded public Git clone/cache
     |                                           |-- safe deterministic analysis
-    |                                           +-- registry freshness lookups
-    |
-    +-- POST /api/generate ------------> Ollama (optional, local)
+    |                                           |-- registry freshness lookups
+    |                                           +-- bounded narrative -----> Ollama (optional, local)
 
 If the API cannot be reached, the frontend renders embedded sample reviews.
-If Ollama cannot be reached, re-running a review returns the existing sample summary.
+If Ollama is disabled or unreachable, the worker persists the complete deterministic template narrative.
 ```
 
 ### Technology Stack
@@ -61,7 +60,7 @@ If Ollama cannot be reached, re-running a review returns the existing sample sum
 | Frontend | React, Vite, TypeScript, React Router, plain CSS |
 | API | Node.js, Fastify, TypeScript |
 | Database | MariaDB through `mysql2/promise` |
-| Local AI | Ollama-compatible `/api/generate` endpoint |
+| Local AI | API-owned Ollama `/api/generate` client with validated JSON fallback |
 | Icons | Phosphor Icons |
 
 ## Quick Start
@@ -142,6 +141,12 @@ Copy [`api/.env.example`](api/.env.example) to `api/.env` and configure:
 | `REGISTRY_MAX_PACKAGES` | `30` | Maximum dependency lookups per review |
 | `WORKER_POLL_MS` | `1000` | Durable queue poll interval |
 | `GITLEAKS_PATH` | empty | Optional explicitly pinned gitleaks binary path |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | API-side Ollama base URL; empty disables model calls |
+| `OLLAMA_MODEL` | `llama3.1` | Ollama model used by the worker |
+| `OLLAMA_TIMEOUT_MS` | `45000` | Narrative request timeout |
+| `OLLAMA_HEALTH_TIMEOUT_MS` | `1500` | Health-probe timeout |
+| `OLLAMA_MAX_PROMPT_BYTES` | `12288` | Maximum deterministic-evidence prompt size |
+| `OLLAMA_MAX_RESPONSE_BYTES` | `65536` | Maximum Ollama response size |
 
 ### Frontend
 
@@ -150,10 +155,8 @@ Vite reads these variables at startup:
 | Variable | Development value | Purpose |
 | --- | --- | --- |
 | `VITE_API_BASE` | `http://localhost:8080` | Fastify API base URL |
-| `VITE_LLM_BASE` | `http://raspberrypi.local:11434` | Ollama base URL |
-| `VITE_LLM_MODEL` | `llama3.1` | Ollama model used for summaries |
 
-The checked-in [`frontend/.env.development`](frontend/.env.development) sets the local API URL. Override the Ollama values in a local Vite environment file when needed, then restart the development server.
+The checked-in [`frontend/.env.development`](frontend/.env.development) sets the local API URL. The browser never receives an Ollama base URL or contacts port 11434 directly.
 
 ## API
 
@@ -161,7 +164,9 @@ The implemented API surface is:
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
-| `GET` | `/api/health` | Check API and database availability |
+| `GET` | `/api/health` | Check database, worker, and non-secret Ollama capability state |
+| `GET` | `/api/settings` | Read API-owned Ollama base URL and model settings |
+| `PUT` | `/api/settings` | Validate and persist API-owned Ollama settings |
 | `GET` | `/api/repos` | List repositories with their latest reviews |
 | `GET` | `/api/repos/:id` | Get one repository and its latest review |
 | `GET` | `/api/repositories` | List every registered repository, including unreviewed entries and latest job state |
@@ -234,7 +239,7 @@ The files under [`design_handoff_ai_project_reviewer/`](design_handoff_ai_projec
 - [x] M1: React frontend and routed review experience
 - [x] M2: MariaDB schema, seed data, and repository read API
 - [x] M3: Repository ingestion, static analysis, review jobs, and persisted reruns
-- [ ] M4: Ollama-backed narrative generation integrated into the review pipeline
+- [x] M4: Ollama-backed narrative generation integrated into the review pipeline
 - [ ] M5: Docker Compose packaging and Raspberry Pi deployment
 
 See the original [implementation plan](design_handoff_ai_project_reviewer/IMPLEMENTATION_PLAN.md) for the intended milestone details. Roadmap items describe direction, not completed functionality.

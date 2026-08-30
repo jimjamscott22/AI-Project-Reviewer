@@ -3,7 +3,9 @@ import { config } from '../config.js';
 import { claimNextJob, completeJob, failJob, updateJobStage, type ClaimedReviewJob } from '../db/jobs.js';
 import { updateRepositoryMetadata } from '../db/repos.js';
 import { persistReview } from '../db/reviews.js';
+import { getReviewerSettings } from '../db/settings.js';
 import { analyzeRepository, AnalysisLimitError } from './analyze.js';
+import { applyNarrative, generateNarrative } from './narrative.js';
 import { scoreAnalysis } from './scoring.js';
 import { BoundedCommandError, prepareRepository } from './workspace.js';
 
@@ -34,11 +36,14 @@ async function processJob(app: FastifyInstance, job: ClaimedReviewJob): Promise<
     const analysis = await analyzeRepository(prepared.root, { repositoryName: job.repositoryName });
     await updateRepositoryMetadata(job.repositoryDatabaseId, analysis.language, analysis.framework);
     await updateJobStage(job.id, 'narrating');
-    const review = scoreAnalysis(analysis);
+    const scored = scoreAnalysis(analysis);
+    const settings = await getReviewerSettings();
+    const generated = await generateNarrative(scored, settings);
+    const review = applyNarrative(scored, generated.narrative);
     await updateJobStage(job.id, 'persisting');
     const reviewId = await persistReview(job.repositoryDatabaseId, review);
     await completeJob(job.id, reviewId);
-    app.log.info({ jobId: job.id, reviewId }, 'Completed deterministic repository review.');
+    app.log.info({ jobId: job.id, reviewId, narrativeSource: generated.source }, 'Completed repository review.');
   } catch (error) {
     const failure = safeFailure(error);
     await failJob(job.id, failure);

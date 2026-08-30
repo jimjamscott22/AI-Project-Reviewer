@@ -1,5 +1,7 @@
 # Task 3 checkpoint handoff
 
+> Historical checkpoint: Task 4 is now implemented. Continue from `2026-08-24-task4-handoff.md`.
+
 Date: 2026-08-24
 
 ## Completed

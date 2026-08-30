@@ -18,7 +18,7 @@ vi.mock('./data/api', async (importOriginal) => {
 describe('App review-data boundary', () => {
   beforeEach(() => {
     localStorage.clear();
-    vi.mocked(ping).mockResolvedValue(false);
+    vi.mocked(ping).mockResolvedValue(null);
   });
 
   it('moves from loading to a safe empty state and repository action', async () => {
