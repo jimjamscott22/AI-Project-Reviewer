@@ -1,0 +1,18 @@
+/home/jimjamscozz/Desktop/GitHub-Repos/AI-Project-Reviewer/README.md
+/home/jimjamscozz/Desktop/GitHub-Repos/AI-Project-Reviewer/api/README.md
+/home/jimjamscozz/Desktop/GitHub-Repos/AI-Project-Reviewer/api/test/fixtures/node-project/.github/workflows/ci.yml
+/home/jimjamscozz/Desktop/GitHub-Repos/AI-Project-Reviewer/api/test/fixtures/node-project/README.md
+/home/jimjamscozz/Desktop/GitHub-Repos/AI-Project-Reviewer/api/test/fixtures/python-project/README.md
+/home/jimjamscozz/Desktop/GitHub-Repos/AI-Project-Reviewer/api/test/fixtures/python-project/requirements.txt
+/home/jimjamscozz/Desktop/GitHub-Repos/AI-Project-Reviewer/design_handoff_ai_project_reviewer/IMPLEMENTATION_PLAN.md
+/home/jimjamscozz/Desktop/GitHub-Repos/AI-Project-Reviewer/design_handoff_ai_project_reviewer/prototype/AI Project Reviewer.html
+/home/jimjamscozz/Desktop/GitHub-Repos/AI-Project-Reviewer/docs/2026-08-28-current-state-review.md
+/home/jimjamscozz/Desktop/GitHub-Repos/AI-Project-Reviewer/docs/checkpoints/2026-08-24-task3-handoff.md
+/home/jimjamscozz/Desktop/GitHub-Repos/AI-Project-Reviewer/docs/checkpoints/2026-08-24-task4-handoff.md
+/home/jimjamscozz/Desktop/GitHub-Repos/AI-Project-Reviewer/docs/superpowers/plans/2026-08-23-finish-ai-project-reviewer.md
+/home/jimjamscozz/Desktop/GitHub-Repos/AI-Project-Reviewer/frontend/README.md
+/home/jimjamscozz/Desktop/GitHub-Repos/AI-Project-Reviewer/frontend/index.html
+/home/jimjamscozz/Desktop/GitHub-Repos/AI-Project-Reviewer/design_handoff_ai_project_reviewer/screenshots/01-review-dark.png
+/home/jimjamscozz/Desktop/GitHub-Repos/AI-Project-Reviewer/design_handoff_ai_project_reviewer/screenshots/02-dashboard-dark.png
+/home/jimjamscozz/Desktop/GitHub-Repos/AI-Project-Reviewer/design_handoff_ai_project_reviewer/screenshots/03-insights-dark.png
+/home/jimjamscozz/Desktop/GitHub-Repos/AI-Project-Reviewer/design_handoff_ai_project_reviewer/screenshots/04-review-light.png
