@@ -30,6 +30,7 @@ function safeFailure(error: unknown): { code: string; message: string } {
 async function processJob(app: FastifyInstance, job: ClaimedReviewJob): Promise<void> {
   let cleanup: (() => Promise<void>) | null = null;
   try {
+    const settings = await getReviewerSettings();
     const prepared = await prepareRepository(job.repositoryUrl);
     cleanup = prepared.cleanup;
     await updateJobStage(job.id, 'analyzing');
@@ -37,7 +38,6 @@ async function processJob(app: FastifyInstance, job: ClaimedReviewJob): Promise<
     await updateRepositoryMetadata(job.repositoryDatabaseId, analysis.language, analysis.framework);
     await updateJobStage(job.id, 'narrating');
     const scored = scoreAnalysis(analysis);
-    const settings = await getReviewerSettings();
     const generated = await generateNarrative(scored, settings);
     const review = applyNarrative(scored, generated.narrative);
     await updateJobStage(job.id, 'persisting');

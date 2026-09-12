@@ -146,3 +146,13 @@ html,body,#root{min-width:0;max-width:100%}
   .apr-rail-head h5{font-size:14px}
   .apr-repo{min-width:180px}
 }
+
+.apr-settings { max-width: 760px; width: 100%; padding: 32px; box-sizing: border-box; }
+.apr-settings h2 { margin-top: 0; }
+.apr-settings fieldset { border: 0; padding: 0; margin: 24px 0 0; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.apr-settings label { font-weight: 600; margin-top: 8px; }
+.apr-settings input, .apr-settings select { box-sizing: border-box; width: 100%; min-width: 0; padding: 12px; border: 1px solid var(--color-divider); border-radius: 8px; background: var(--color-surface); color: var(--color-text); font: inherit; }
+.apr-settings input:focus-visible, .apr-settings select:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.apr-settings p { line-height: 1.6; overflow-wrap: anywhere; }
+.apr-settings fieldset .btn { align-self: flex-start; }
+@media (max-width: 600px) { .apr-settings { padding: 20px 16px; } }

@@ -1,0 +1,70 @@
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { beforeEach, expect, it, vi } from 'vitest';
+import { SettingsScreen } from './SettingsScreen';
+import { discoverModels, getSettings, saveSettings } from '../data/api';
+import type { ReviewerSettings } from '../data/types';
+vi.mock('../data/api', () => ({ discoverModels: vi.fn(), getSettings: vi.fn(), saveSettings: vi.fn() }));
+const settings: ReviewerSettings = { inferenceProvider: 'lmstudio', lmStudioBaseUrl: 'http://localhost:1234', lmStudioModel: 'old', ollamaBaseUrl: 'http://localhost:11434', ollamaModel: 'llama3.1' };
+beforeEach(() => {
+  vi.resetAllMocks();
+  vi.mocked(getSettings).mockResolvedValue({ ...settings });
+  vi.mocked(discoverModels).mockResolvedValue({ models: [{ id: 'new', name: 'New model', loaded: true }] });
+  vi.mocked(saveSettings).mockImplementation(async value => value);
+});
+it('discovers, saves, refreshes and reloads the chosen model', async () => {
+  const onSaved = vi.fn();
+  const view = render(<SettingsScreen onSaved={onSaved} />);
+  await screen.findByRole('option', { name: /New model/ });
+  expect(screen.getByLabelText('LM Studio model')).toHaveValue('old');
+  expect(screen.getByRole('option', { name: /old.*not in current list/ })).toBeInTheDocument();
+  fireEvent.change(screen.getByLabelText('LM Studio model'), { target: { value: 'new' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+  await screen.findByText(/Settings saved/);
+  expect(saveSettings).toHaveBeenCalledWith({ ...settings, lmStudioModel: 'new' });
+  expect(onSaved).toHaveBeenCalledWith({ ...settings, lmStudioModel: 'new' });
+  fireEvent.click(screen.getByRole('button', { name: 'Refresh models' }));
+  await waitFor(() => expect(discoverModels).toHaveBeenCalledTimes(2));
+  view.unmount();
+  vi.mocked(getSettings).mockResolvedValue({ ...settings, lmStudioModel: 'new' });
+  render(<SettingsScreen onSaved={onSaved} />);
+  await waitFor(() => expect(screen.getByLabelText('LM Studio model')).toHaveValue('new'));
+});
+it('preserves each provider and shows explicit disabled behavior', async () => {
+  render(<SettingsScreen onSaved={vi.fn()} />);
+  await screen.findByLabelText('Provider');
+  fireEvent.change(screen.getByLabelText('Provider'), { target: { value: 'ollama' } });
+  fireEvent.change(screen.getByLabelText('Ollama model'), { target: { value: 'another' } });
+  fireEvent.change(screen.getByLabelText('Provider'), { target: { value: 'lmstudio' } });
+  expect(screen.getByLabelText('LM Studio model')).toHaveValue('old');
+  fireEvent.change(screen.getByLabelText('Provider'), { target: { value: 'ollama' } });
+  expect(screen.getByLabelText('Ollama model')).toHaveValue('another');
+  fireEvent.change(screen.getByLabelText('Provider'), { target: { value: 'disabled' } });
+  expect(screen.getByText(/without contacting a model server/)).toBeInTheDocument();
+});
+it('shows connection failures and permits retaining a saved unavailable model', async () => {
+  vi.mocked(discoverModels).mockRejectedValue(new Error('Cannot reach LM Studio'));
+  vi.mocked(saveSettings).mockRejectedValue(new Error('Database unavailable'));
+  render(<SettingsScreen onSaved={vi.fn()} />);
+  await screen.findByText('Cannot reach LM Studio');
+  expect(screen.getByLabelText('LM Studio model')).toHaveValue('old');
+  fireEvent.click(screen.getByRole('button', { name: 'Save settings' }));
+  await screen.findByText('Database unavailable');
+});
+it('shows empty models and requires a selection for first enablement', async () => {
+  vi.mocked(getSettings).mockResolvedValue({ ...settings, lmStudioModel: '' });
+  vi.mocked(discoverModels).mockResolvedValue({ models: [] });
+  render(<SettingsScreen onSaved={vi.fn()} />);
+  await screen.findByText(/No text-generation models found/);
+  expect(screen.getByRole('button', { name: 'Save settings' })).toBeDisabled();
+});
+it('ignores responses for an old draft URL', async () => {
+  let resolveOld!: (result: { models: { id: string; name: string; loaded: boolean }[] }) => void;
+  vi.mocked(discoverModels).mockImplementationOnce(() => new Promise(resolve => { resolveOld = resolve; }));
+  render(<SettingsScreen onSaved={vi.fn()} />);
+  await screen.findByLabelText('LM Studio server URL');
+  fireEvent.change(screen.getByLabelText('LM Studio server URL'), { target: { value: 'http://desktop.local:1234' } });
+  await screen.findByRole('option', { name: /New model/ });
+  await act(async () => resolveOld({ models: [{ id: 'stale', name: 'Stale', loaded: true }] }));
+  expect(screen.queryByRole('option', { name: /Stale/ })).not.toBeInTheDocument();
+  expect(discoverModels).toHaveBeenLastCalledWith('http://desktop.local:1234', expect.any(AbortSignal));
+});

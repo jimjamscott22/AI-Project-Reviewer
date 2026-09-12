@@ -14,7 +14,8 @@
     "test:integration": "tsx --test test/integration/task2.test.ts",
     "test:worker-integration": "tsx --test test/integration/task3.test.ts",
     "test:ollama-integration": "tsx --test test/integration/task4.test.ts",
-    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json"
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.test.json",
+    "test:inference-integration": "tsx --experimental-test-module-mocks --test test/integration/local-inference.test.ts"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.0",

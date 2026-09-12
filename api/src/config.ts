@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import path from 'node:path';
-import { normalizeOllamaBaseUrl, normalizeOllamaModel } from './lib/ollamaSettings.js';
+import { normalizeOllamaBaseUrl, normalizeOllamaModel, normalizeLMStudioModel } from './lib/ollamaSettings.js';
 
 function required(name: string, fallback: string): string {
   return process.env[name] ?? fallback;
@@ -37,6 +37,12 @@ export const config = {
     registryMaxPackages: boundedInteger('REGISTRY_MAX_PACKAGES', 30, 0, 200),
     workerPollMs: boundedInteger('WORKER_POLL_MS', 1_000, 100, 60_000),
     gitleaksPath: required('GITLEAKS_PATH', '').trim(),
+  },
+  lmstudio: {
+    baseUrl: normalizeOllamaBaseUrl(required('LMSTUDIO_BASE_URL', 'http://localhost:1234'), 'LMSTUDIO_BASE_URL'),
+    model: normalizeLMStudioModel(required('LMSTUDIO_MODEL', '')),
+    apiToken: required('LMSTUDIO_API_TOKEN', ''),
+    timeoutMs: boundedInteger('LMSTUDIO_TIMEOUT_MS', 120_000, 500, 300_000),
   },
   ollama: {
     baseUrl: normalizeOllamaBaseUrl(required('OLLAMA_BASE_URL', 'http://localhost:11434'), 'OLLAMA_BASE_URL'),

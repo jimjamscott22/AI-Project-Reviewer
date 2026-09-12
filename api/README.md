@@ -86,3 +86,23 @@ npm test
   <40 red), slugify.
 - `src/types.ts` — mirrors `frontend/src/data/types.ts`; this is the JSON
   shape the routes return.
+
+### Local inference settings
+
+`GET /api/settings` returns `inferenceProvider` (`ollama`, `lmstudio`, `disabled`),
+`ollamaBaseUrl`, `ollamaModel`, `lmStudioBaseUrl`, and `lmStudioModel`.
+`PUT /api/settings` saves these fields in `app_settings`. Legacy requests containing
+only the two Ollama fields preserve the other stored fields. Enabling LM Studio
+requires a nonempty server root URL and model identifier.
+
+`POST /api/settings/models` accepts `{ "lmStudioBaseUrl": "http://localhost:1234" }`
+and returns `{ "models": [{ "id": "vendor/model", "name": "Model", "loaded": false }] }`.
+This previews a draft URL without saving it. Only local/LAN URLs are accepted;
+redirects are rejected, discovery times out after three seconds, and responses
+are limited to 1 MiB. Failures return an explicit error code and message.
+
+Health responses include `inference` with the active provider, enabled/reachable
+state, and selected model. The legacy `ollama` object remains present and reports
+inactive when another provider is selected. LM Studio availability indicates that
+the selected model is listed, not a guarantee that it fits in memory or can generate.
+See the root README for authentication, network setup, and model loading.

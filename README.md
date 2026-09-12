@@ -247,3 +247,32 @@ See the original [implementation plan](design_handoff_ai_project_reviewer/IMPLEM
 ## License
 
 Licensed under the [Apache License 2.0](LICENSE).
+
+### Choose a local inference model
+
+Open **Settings → Local inference** to select **Ollama**, **LM Studio**, or
+**Disabled** (deterministic template summaries). For LM Studio, enter its server
+URL, choose a downloaded text-generation model, and click **Save settings**.
+**Refresh models** reloads the list without changing saved settings. Unloaded
+models require just-in-time loading enabled in LM Studio or manual loading there.
+Embedding models are excluded. The picker does not download or load models.
+
+Selections are stored in MariaDB and override environment defaults without an API
+restart. Each review snapshots the settings when its worker starts; an active
+review keeps its selection. Each provider retains its own URL and model.
+
+The URL must be reachable **from the API server**, not just your browser. For an
+API running on a Raspberry Pi and LM Studio on a desktop, use the desktop's LAN
+address and enable LM Studio's network server access. `localhost:1234` means the
+API's own machine. Enter the server root URL without `/v1`. Model discovery uses
+LM Studio's `/api/v1/models` API; use a version supporting that endpoint.
+
+Optional API environment defaults: `LMSTUDIO_BASE_URL`, `LMSTUDIO_MODEL`, and
+`LMSTUDIO_TIMEOUT_MS` (120000 by default). If LM Studio requires authentication,
+set `LMSTUDIO_API_TOKEN` in the API environment and restart the API. This token is
+never returned to the browser. Existing `OLLAMA_*` defaults remain supported and
+existing installations continue using Ollama until changed in Settings.
+
+Connection or authentication failures appear in Settings; saved models are retained
+even when unavailable. Failed narrative generation retains the existing validated,
+deterministic template fallback. Scores remain based on repository analysis.

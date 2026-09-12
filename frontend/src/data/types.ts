@@ -53,6 +53,7 @@ export interface HealthStatus {
   status: 'ok' | 'degraded';
   db: boolean;
   worker: boolean;
+  inference?: { provider: InferenceProvider; enabled: boolean; reachable: boolean; model: string };
   ollama: {
     enabled: boolean;
     reachable: boolean;
@@ -62,3 +63,13 @@ export interface HealthStatus {
 
 export type ScreenId = 'dashboard' | 'repos' | 'reviews' | 'insights' | 'settings';
 export type TabId = 'ai' | 'quality' | 'structure' | 'deps' | 'security';
+
+export type InferenceProvider = 'ollama' | 'lmstudio' | 'disabled';
+export interface ReviewerSettings {
+  inferenceProvider: InferenceProvider;
+  ollamaBaseUrl: string;
+  ollamaModel: string;
+  lmStudioBaseUrl: string;
+  lmStudioModel: string;
+}
+export interface LocalModel { id: string; name: string; loaded: boolean }

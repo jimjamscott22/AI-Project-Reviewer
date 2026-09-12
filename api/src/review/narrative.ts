@@ -1,3 +1,4 @@
+import { lmStudioHeaders } from '../lib/lmStudio.js';
 import { config } from '../config.js';
 import type { ReviewerSettings, ReviewResult } from '../types.js';
 
@@ -12,7 +13,7 @@ export interface ValidatedNarrative {
 
 export interface NarrativeResult {
   narrative: ValidatedNarrative;
-  source: 'ollama' | 'template';
+  source: 'ollama' | 'lmstudio' | 'template';
 }
 
 interface NarrativeOptions {
@@ -144,33 +145,61 @@ async function readBounded(response: Response, maximumBytes: number): Promise<st
   return new TextDecoder().decode(combined);
 }
 
+const NARRATIVE_SCHEMA = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    aiSummary: { type: 'string' },
+    strengths: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 8 },
+    improvements: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 8 },
+    nextSteps: { type: 'array', items: { type: 'string' }, minItems: 1, maxItems: 8 },
+    portfolioBlurb: { type: 'string' },
+    portfolioFooter: { type: 'string' },
+  },
+  required: ['aiSummary', 'strengths', 'improvements', 'nextSteps', 'portfolioBlurb', 'portfolioFooter'],
+};
+
 async function requestNarrative(
   review: ReviewResult,
   settings: ReviewerSettings,
   correction: boolean,
   options: Required<NarrativeOptions>,
 ): Promise<ValidatedNarrative> {
+  const isLMStudio = settings.inferenceProvider === 'lmstudio';
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), options.timeoutMs);
   try {
-    const response = await options.fetchImpl(`${settings.ollamaBaseUrl}/api/generate`, {
+    const response = await options.fetchImpl(isLMStudio ? `${settings.lmStudioBaseUrl}/v1/chat/completions` : `${settings.ollamaBaseUrl}/api/generate`, {
       method: 'POST',
+      redirect: 'error',
       signal: controller.signal,
-      headers: { 'content-type': 'application/json', accept: 'application/json' },
-      body: JSON.stringify({
+      headers: { 'content-type': 'application/json', accept: 'application/json', ...(isLMStudio ? lmStudioHeaders() : {}) },
+      body: JSON.stringify(isLMStudio ? {
+        model: settings.lmStudioModel,
+        stream: false,
+        messages: [{ role: 'user', content: promptFor(review, correction, options.maxPromptBytes) }],
+        response_format: { type: 'json_schema', json_schema: { name: 'review_narrative', strict: true, schema: NARRATIVE_SCHEMA } },
+      } : {
         model: settings.ollamaModel,
         stream: false,
         format: 'json',
         prompt: promptFor(review, correction, options.maxPromptBytes),
       }),
     });
-    if (!response.ok) throw new OllamaUnavailableError();
+    if (!response.ok) {
+      await response.body?.cancel();
+      throw new OllamaUnavailableError();
+    }
     let envelope: unknown;
     try {
       envelope = JSON.parse(await readBounded(response, options.maxResponseBytes));
     } catch (error) {
       if (error instanceof InvalidNarrativeError) throw error;
       throw new InvalidNarrativeError('Ollama returned malformed response JSON.');
+    }
+    if (isLMStudio && envelope && typeof envelope === 'object' && 'choices' in envelope && Array.isArray(envelope.choices)) {
+      const first: unknown = envelope.choices[0];
+      if (first && typeof first === 'object' && 'message' in first && first.message && typeof first.message === 'object' && 'content' in first.message) envelope = { response: first.message.content };
     }
     if (!envelope || typeof envelope !== 'object' || typeof (envelope as { response?: unknown }).response !== 'string') {
       throw new InvalidNarrativeError('Ollama response did not contain narrative JSON.');
@@ -196,20 +225,20 @@ export async function generateNarrative(
   supplied: NarrativeOptions = {},
 ): Promise<NarrativeResult> {
   const fallback = { narrative: templateNarrative(scored), source: 'template' as const };
-  if (!settings.ollamaBaseUrl) return fallback;
+  if (settings.inferenceProvider === 'disabled' || (settings.inferenceProvider === 'lmstudio' ? !settings.lmStudioBaseUrl || !settings.lmStudioModel : !settings.ollamaBaseUrl)) return fallback;
   const options: Required<NarrativeOptions> = {
     fetchImpl: supplied.fetchImpl ?? fetch,
-    timeoutMs: supplied.timeoutMs ?? config.ollama.timeoutMs,
+    timeoutMs: supplied.timeoutMs ?? (settings.inferenceProvider === 'lmstudio' ? config.lmstudio.timeoutMs : config.ollama.timeoutMs),
     maxPromptBytes: supplied.maxPromptBytes ?? config.ollama.maxPromptBytes,
     maxResponseBytes: supplied.maxResponseBytes ?? config.ollama.maxResponseBytes,
   };
   try {
-    return { narrative: await requestNarrative(scored, settings, false, options), source: 'ollama' };
+    return { narrative: await requestNarrative(scored, settings, false, options), source: settings.inferenceProvider === 'lmstudio' ? 'lmstudio' : 'ollama' };
   } catch (error) {
     if (!(error instanceof InvalidNarrativeError)) return fallback;
   }
   try {
-    return { narrative: await requestNarrative(scored, settings, true, options), source: 'ollama' };
+    return { narrative: await requestNarrative(scored, settings, true, options), source: settings.inferenceProvider === 'lmstudio' ? 'lmstudio' : 'ollama' };
   } catch {
     return fallback;
   }

@@ -18,7 +18,7 @@ export function normalizeOllamaBaseUrl(value: string, label = '"ollamaBaseUrl"')
   try {
     parsed = new URL(trimmed);
   } catch {
-    throw new Error(`${label} must be an absolute local HTTP or HTTPS URL, or empty to disable Ollama.`);
+    throw new Error(`${label} must be an absolute local HTTP or HTTPS URL, or empty to disable inference.`);
   }
   if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password || parsed.search || parsed.hash) {
     throw new Error(`${label} must be a credential-free HTTP or HTTPS URL without a query or fragment.`);
@@ -42,8 +42,25 @@ export function normalizeReviewerSettings(input: unknown): ReviewerSettings {
   const body = input as Partial<ReviewerSettings>;
   if (typeof body.ollamaBaseUrl !== 'string') throw new Error('"ollamaBaseUrl" must be a string.');
   if (typeof body.ollamaModel !== 'string') throw new Error('"ollamaModel" must be a string.');
+  const extra: Partial<ReviewerSettings> = {};
+  if (body.inferenceProvider !== undefined) {
+    if (!["ollama", "lmstudio", "disabled"].includes(body.inferenceProvider)) throw new Error('"inferenceProvider" is invalid.');
+    extra.inferenceProvider = body.inferenceProvider;
+  }
+  if (body.lmStudioBaseUrl !== undefined) {
+    if (typeof body.lmStudioBaseUrl !== "string") throw new Error('"lmStudioBaseUrl" must be a string.');
+    extra.lmStudioBaseUrl = normalizeOllamaBaseUrl(body.lmStudioBaseUrl, '"lmStudioBaseUrl"');
+  }
+  if (body.lmStudioModel !== undefined) extra.lmStudioModel = normalizeLMStudioModel(body.lmStudioModel);
+  if (extra.inferenceProvider === "lmstudio" && (!extra.lmStudioBaseUrl || !extra.lmStudioModel)) throw new Error('"lmStudioModel" and "lmStudioBaseUrl" are required to enable LM Studio.');
   return {
+    ...extra,
     ollamaBaseUrl: normalizeOllamaBaseUrl(body.ollamaBaseUrl),
     ollamaModel: normalizeOllamaModel(body.ollamaModel),
   };
+}
+
+export function normalizeLMStudioModel(value: unknown): string {
+  if (typeof value !== "string" || value.length > 512 || Array.from(value).some(char => char.charCodeAt(0) < 32 || char.charCodeAt(0) === 127)) throw new Error('"lmStudioModel" must be a model identifier of at most 512 characters.');
+  return value.trim();
 }

@@ -145,3 +145,29 @@ test('an empty Ollama base URL disables calls and returns the complete template'
   assert.equal(result.source, 'template');
   assert.deepEqual(result.narrative.strengths, REVIEW.strengths);
 });
+
+test('LM Studio sends the selected model and validates structured output', async () => {
+  const result = await generateNarrative(REVIEW, { ...SETTINGS, inferenceProvider: 'lmstudio', lmStudioBaseUrl: 'http://localhost:1234', lmStudioModel: 'vendor/chosen@q4' }, {
+    fetchImpl: async (url, init) => {
+      assert.equal(url, 'http://localhost:1234/v1/chat/completions');
+      const body = JSON.parse(String(init?.body));
+      assert.equal(body.model, 'vendor/chosen@q4');
+      assert.equal(body.response_format.type, 'json_schema');
+      assert.equal(init?.redirect, 'error');
+      assert.doesNotMatch(body.messages[0].content, /ghp_abcdefghijklmnopqrstuvwxyz1234567890/);
+      return Response.json({ choices: [{ message: { content: JSON.stringify(VALID) } }] });
+    },
+  });
+  assert.equal(result.source, 'lmstudio');
+  assert.deepEqual(result.narrative, VALID);
+});
+test('LM Studio retries invalid output and falls back; disabled inference never fetches', async () => {
+  let calls = 0;
+  const result = await generateNarrative(REVIEW, { ...SETTINGS, inferenceProvider: 'lmstudio', lmStudioBaseUrl: 'http://localhost:1234', lmStudioModel: 'chosen' }, {
+    fetchImpl: async () => { calls++; return Response.json({ choices: [{ message: { content: '{}' } }] }); },
+  });
+  assert.equal(calls, 2);
+  assert.equal(result.source, 'template');
+  const disabled = await generateNarrative(REVIEW, { ...SETTINGS, inferenceProvider: 'disabled' }, { fetchImpl: async () => { throw new Error('Must not fetch'); } });
+  assert.equal(disabled.source, 'template');
+});

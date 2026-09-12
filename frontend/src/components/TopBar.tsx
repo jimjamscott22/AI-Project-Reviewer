@@ -15,9 +15,10 @@ interface TopBarProps {
   db: boolean;
   llm: boolean;
   llmModel: string;
+  llmProvider?: string;
 }
 
-export function TopBar({ screen, go, theme, setTheme, rerun, running, generated, db, llm, llmModel }: TopBarProps) {
+export function TopBar({ screen, go, theme, setTheme, rerun, running, generated, db, llm, llmModel, llmProvider = 'Ollama' }: TopBarProps) {
   return (
     <header className="apr-top">
       {screen === 'reviews' ? (
@@ -29,7 +30,7 @@ export function TopBar({ screen, go, theme, setTheme, rerun, running, generated,
       )}
       <span className="apr-top-spacer" />
       <Chip ok={db} icon="database" label="mariadb @ pi" offlineLabel="MariaDB is unreachable; embedded demo reviews are displayed." />
-      <Chip ok={llm} icon="cpu" label={llmModel + ' (local)'} offlineLabel="Ollama is unreachable or disabled; review summaries use API fallback text." />
+      <Chip ok={llm} icon="cpu" label={`${llmProvider}: ${llmModel || 'Template summaries'}`} offlineLabel={`${llmProvider}: ${llmModel || 'Template summaries'} — unavailable or disabled; review summaries use API fallback text.`} />
       {screen === 'reviews' && (
         <span className="text-muted apr-generated" style={{ fontSize: 13 }}>
           Review generated <b style={{ color: 'var(--color-text)', fontWeight: 500 }}>{generated}</b>

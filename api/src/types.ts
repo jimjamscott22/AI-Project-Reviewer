@@ -78,7 +78,12 @@ export interface RepositorySummary {
   latestJob: Pick<ReviewJob, 'id' | 'status' | 'error'> | null;
 }
 
+export type InferenceProvider = 'ollama' | 'lmstudio' | 'disabled';
+
 export interface ReviewerSettings {
+  inferenceProvider?: InferenceProvider;
+  lmStudioBaseUrl?: string;
+  lmStudioModel?: string;
   ollamaBaseUrl: string;
   ollamaModel: string;
 }
@@ -87,6 +92,7 @@ export interface HealthStatus {
   status: 'ok' | 'degraded';
   db: boolean;
   worker: boolean;
+  inference?: { provider: InferenceProvider; enabled: boolean; reachable: boolean; model: string };
   ollama: {
     enabled: boolean;
     reachable: boolean;

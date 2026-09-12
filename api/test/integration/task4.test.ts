@@ -66,10 +66,10 @@ test('settings, health, Ollama persistence, and disabled fallback work end to en
     const saved = await app.inject({
       method: 'PUT',
       url: '/api/settings',
-      payload: { ollamaBaseUrl: baseUrl, ollamaModel: 'fixture-model' },
+      payload: { inferenceProvider: 'ollama', ollamaBaseUrl: baseUrl, ollamaModel: 'fixture-model' },
     });
     assert.equal(saved.statusCode, 200);
-    assert.deepEqual(saved.json() as ReviewerSettings, { ollamaBaseUrl: baseUrl, ollamaModel: 'fixture-model' });
+    assert.equal((saved.json() as ReviewerSettings).ollamaModel, 'fixture-model');
     assert.deepEqual((await app.inject({ method: 'GET', url: '/api/settings' })).json(), saved.json());
 
     const health = await app.inject({ method: 'GET', url: '/api/health' });
