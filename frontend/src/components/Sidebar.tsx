@@ -12,9 +12,11 @@ const NAV: [string, string, ScreenId][] = [
 interface SidebarProps {
   screen: ScreenId;
   go: (screen: ScreenId) => void;
+  authRequired?: boolean;
+  onSignOut?: () => void;
 }
 
-export function Sidebar({ screen, go }: SidebarProps) {
+export function Sidebar({ screen, go, authRequired = false, onSignOut }: SidebarProps) {
   return (
     <aside className="apr-side">
       <div className="apr-brand">
@@ -51,7 +53,13 @@ export function Sidebar({ screen, go }: SidebarProps) {
             developer@example.com
           </small>
         </div>
-        <Icon n="caret-down" size={13} style={{ opacity: 0.6 }} />
+        {authRequired ? (
+          <button className="btn btn-ghost btn-icon" title="Sign out" aria-label="Sign out" onClick={onSignOut} style={{ color: 'inherit' }}>
+            <Icon n="sign-out" size={15} />
+          </button>
+        ) : (
+          <Icon n="caret-down" size={13} style={{ opacity: 0.6 }} />
+        )}
       </div>
     </aside>
   );

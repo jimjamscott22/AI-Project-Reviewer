@@ -61,6 +61,33 @@ export interface HealthStatus {
   };
 }
 
+export type ReviewJobStatus = 'queued' | 'running' | 'succeeded' | 'failed';
+
+export interface ReviewJob {
+  id: string;
+  repoId: string;
+  status: ReviewJobStatus;
+  error: { code: string; message: string } | null;
+}
+
+export interface RepositorySummary {
+  id: string;
+  name: string;
+  url: string;
+  connectedAt: string;
+  latestReviewId: number | null;
+  latestScore: number | null;
+  latestReviewAt: string | null;
+  latestJob: Pick<ReviewJob, 'id' | 'status' | 'error'> | null;
+}
+
+export type RepoDataStatus = 'live' | 'demo' | 'error';
+
+export interface SessionStatus {
+  authRequired: boolean;
+  authenticated: boolean;
+}
+
 export type ScreenId = 'dashboard' | 'repos' | 'reviews' | 'insights' | 'settings';
 export type TabId = 'ai' | 'quality' | 'structure' | 'deps' | 'security';
 

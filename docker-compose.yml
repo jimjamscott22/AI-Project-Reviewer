@@ -1,0 +1,83 @@
+services:
+  mariadb:
+    image: mariadb:11
+    restart: unless-stopped
+    environment:
+      MARIADB_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-change-me-root}
+      MARIADB_DATABASE: ${DB_NAME:-apr}
+      MARIADB_USER: ${DB_USER:-apr}
+      MARIADB_PASSWORD: ${DB_PASSWORD:-change-me}
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD-SHELL", "healthcheck.sh --connect --innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    mem_limit: 512m
+    networks: [apr]
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 8080
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:8080}
+      AUTH_TOKEN: ${AUTH_TOKEN:-}
+      AUTH_SESSION_TTL_MS: ${AUTH_SESSION_TTL_MS:-43200000}
+      DB_HOST: mariadb
+      DB_PORT: 3306
+      DB_USER: ${DB_USER:-apr}
+      DB_PASSWORD: ${DB_PASSWORD:-change-me}
+      DB_NAME: ${DB_NAME:-apr}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://host.docker.internal:11434}
+      OLLAMA_MODEL: ${OLLAMA_MODEL:-llama3.1}
+    ports:
+      - "${API_PORT:-8080}:8080"
+    volumes:
+      - review_work:/app/.review-work
+    # Only the repository-work cache needs to be writable; everything else
+    # in the image (compiled code, node_modules, the built frontend) is
+    # read-only at runtime, and /tmp gets a small tmpfs for any incidental
+    # scratch writes.
+    read_only: true
+    tmpfs:
+      - /tmp:size=64m
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8080/api/health').then((r) => process.exit(r.status < 500 ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    mem_limit: 768m
+    networks: [apr]
+
+  # Optional bundled Ollama, for a fully self-contained deployment with no
+  # host-installed inference server. Opt in with:
+  #   docker compose --profile with-ollama up -d
+  # and set OLLAMA_BASE_URL=http://ollama:11434 in .env.
+  ollama:
+    image: ollama/ollama:latest
+    restart: unless-stopped
+    profiles: ["with-ollama"]
+    volumes:
+      - ollama_data:/root/.ollama
+    mem_limit: 4g
+    networks: [apr]
+
+networks:
+  apr: {}
+
+volumes:
+  db_data:
+  review_work:
+  ollama_data:

@@ -18,6 +18,15 @@ function boundedInteger(name: string, fallback: number, minimum: number, maximum
 export const config = {
   port: Number(required('PORT', '8080')),
   corsOrigin: required('CORS_ORIGIN', 'http://localhost:5173'),
+  nodeEnv: required('NODE_ENV', 'development'),
+  // Set by the production Docker image to serve the built frontend from the
+  // same origin as the API. Empty in local dev, where Vite serves the SPA.
+  staticDir: required('STATIC_DIR', '').trim(),
+  auth: {
+    // Empty token preserves LAN-open behavior; setting it protects mutation/data/settings routes.
+    token: required('AUTH_TOKEN', ''),
+    sessionTtlMs: boundedInteger('AUTH_SESSION_TTL_MS', 12 * 60 * 60 * 1000, 60_000, 30 * 24 * 60 * 60 * 1000),
+  },
   db: {
     host: required('DB_HOST', 'localhost'),
     port: Number(required('DB_PORT', '3306')),

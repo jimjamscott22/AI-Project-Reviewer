@@ -1,10 +1,13 @@
-import type { HealthStatus, Repo, ReviewerSettings, LocalModel } from './types';
+import type { HealthStatus, Repo, ReviewerSettings, LocalModel, RepositorySummary, ReviewJobStatus, RepoDataStatus, SessionStatus } from './types';
 import { APR_SAMPLE } from './sampleData';
 
 // The browser talks only to Fastify. Repository review and Ollama access remain
 // behind that service boundary so local model ports are never exposed to UI code.
 export const APR_CONFIG = {
   apiBase: import.meta.env.VITE_API_BASE ?? 'http://raspberrypi.local:8080', // REST API in front of MariaDB (e.g. GET /api/repos)
+  // Sample data is opt-in: an unreachable production API must be shown as an
+  // honest error, never silently masked with fake portfolio data.
+  demoMode: import.meta.env.VITE_DEMO_MODE === 'true',
 };
 
 export function grade(score: number): string {
@@ -15,7 +18,7 @@ export async function ping(): Promise<HealthStatus | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 2_000);
   try {
-    const response = await fetch(APR_CONFIG.apiBase + '/api/health', { signal: controller.signal, mode: 'cors' });
+    const response = await fetch(APR_CONFIG.apiBase + '/api/health', { signal: controller.signal, mode: 'cors', credentials: 'include' });
     return response.ok ? await response.json() as HealthStatus : null;
   } catch {
     return null;
@@ -24,18 +27,18 @@ export async function ping(): Promise<HealthStatus | null> {
   }
 }
 
-export async function load(): Promise<{ live: boolean; repos: Repo[] }> {
+export async function load(): Promise<{ status: RepoDataStatus; repos: Repo[] }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 1_500);
   try {
-    const r = await fetch(APR_CONFIG.apiBase + '/api/repos', { signal: controller.signal });
-    if (r.ok) return { live: true, repos: await r.json() };
+    const r = await fetch(APR_CONFIG.apiBase + '/api/repos', { signal: controller.signal, credentials: 'include' });
+    if (r.ok) return { status: 'live', repos: await r.json() };
   } catch {
-    // fall through to sample data
+    // fall through below
   } finally {
     clearTimeout(timer);
   }
-  return { live: false, repos: APR_SAMPLE };
+  return APR_CONFIG.demoMode ? { status: 'demo', repos: APR_SAMPLE } : { status: 'error', repos: [] };
 }
 
 export async function rerun(repo: Repo): Promise<{ queued: boolean; summary: string }> {
@@ -45,6 +48,7 @@ export async function rerun(repo: Repo): Promise<{ queued: boolean; summary: str
     const response = await fetch(`${APR_CONFIG.apiBase}/api/repos/${encodeURIComponent(repo.id)}/rerun`, {
       method: 'POST',
       signal: controller.signal,
+      credentials: 'include',
       headers: { 'content-type': 'application/json' },
     });
     if (response.ok) return { queued: true, summary: 'A persisted review has been queued. Its updated narrative will appear after the worker completes.' };
@@ -56,17 +60,26 @@ export async function rerun(repo: Repo): Promise<{ queued: boolean; summary: str
   return { queued: false, summary: repo.ai };
 }
 
-async function settingsRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(APR_CONFIG.apiBase + path, {
     ...options, signal: options.signal ?? AbortSignal.timeout(8000),
+    credentials: 'include',
     headers: { 'content-type': 'application/json' },
   });
   if (!response.ok) {
     const body: unknown = await response.json().catch(() => null);
-    throw new Error(body && typeof body === 'object' && 'message' in body && typeof body.message === 'string' ? body.message : 'The settings API is unavailable. Try again.');
+    throw new Error(body && typeof body === 'object' && 'message' in body && typeof body.message === 'string' ? body.message : 'The API is unavailable. Try again.');
   }
   return response.json() as Promise<T>;
 }
-export const getSettings = () => settingsRequest<ReviewerSettings>('/api/settings');
-export const saveSettings = (settings: ReviewerSettings) => settingsRequest<ReviewerSettings>('/api/settings', { method: 'PUT', body: JSON.stringify(settings) });
-export const discoverModels = (lmStudioBaseUrl: string, signal: AbortSignal) => settingsRequest<{ models: LocalModel[] }>('/api/settings/models', { method: 'POST', body: JSON.stringify({ lmStudioBaseUrl }), signal });
+export const getSettings = () => apiRequest<ReviewerSettings>('/api/settings');
+export const saveSettings = (settings: ReviewerSettings) => apiRequest<ReviewerSettings>('/api/settings', { method: 'PUT', body: JSON.stringify(settings) });
+export const discoverModels = (lmStudioBaseUrl: string, signal: AbortSignal) => apiRequest<{ models: LocalModel[] }>('/api/settings/models', { method: 'POST', body: JSON.stringify({ lmStudioBaseUrl }), signal });
+
+export const listRepositories = () => apiRequest<RepositorySummary[]>('/api/repositories');
+export const connectRepository = (url: string) => apiRequest<RepositorySummary>('/api/repos', { method: 'POST', body: JSON.stringify({ url }) });
+export const enqueueReview = (id: string) => apiRequest<{ jobId: string; status: ReviewJobStatus }>(`/api/repos/${encodeURIComponent(id)}/rerun`, { method: 'POST' });
+
+export const getSessionStatus = () => apiRequest<SessionStatus>('/api/session');
+export const login = (token: string) => apiRequest<{ authenticated: true }>('/api/session/login', { method: 'POST', body: JSON.stringify({ token }) });
+export const logout = () => apiRequest<{ authenticated: false }>('/api/session/logout', { method: 'POST' });
