@@ -7,7 +7,7 @@ import { Dashboard } from './screens/Dashboard';
 import { InsightsScreen } from './screens/InsightsScreen';
 import { ReviewRoute } from './screens/ReviewRoute';
 import { SettingsScreen } from './screens/SettingsScreen';
-import { Stub } from './screens/Stub';
+import { RepositoriesScreen } from './screens/RepositoriesScreen';
 import { load, ping, rerun as rerunApi } from './data/api';
 import { APR_SAMPLE } from './data/sampleData';
 import type { Repo, ScreenId, ReviewerSettings } from './data/types';
@@ -38,6 +38,13 @@ export default function App() {
     document.documentElement.dataset.theme = theme;
     localStorage.setItem('apr-theme', theme);
   }, [theme]);
+
+  const refreshRepos = () => {
+    load().then((r) => {
+      setDb(r.live);
+      setRepos(r.repos);
+    });
+  };
 
   useEffect(() => {
     let active = true;
@@ -130,7 +137,7 @@ export default function App() {
         <TopBar screen={screen} go={go} theme={theme} setTheme={setTheme} rerun={rerun} running={running} generated={generated} db={db} llm={llm} llmModel={llmModel} llmProvider={llmProvider} />
         <Routes>
           <Route path="/" element={withReviewData(<Dashboard repos={repos} openReview={openReview} />)} />
-          <Route path="/repos" element={<Stub label="Repositories" />} />
+          <Route path="/repos" element={<RepositoriesScreen openReview={openReview} onRepositoriesChanged={refreshRepos} />} />
           <Route
             path="/reviews"
             element={

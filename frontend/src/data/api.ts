@@ -1,4 +1,4 @@
-import type { HealthStatus, Repo, ReviewerSettings, LocalModel } from './types';
+import type { HealthStatus, Repo, ReviewerSettings, LocalModel, RepositorySummary, ReviewJobStatus } from './types';
 import { APR_SAMPLE } from './sampleData';
 
 // The browser talks only to Fastify. Repository review and Ollama access remain
@@ -56,17 +56,21 @@ export async function rerun(repo: Repo): Promise<{ queued: boolean; summary: str
   return { queued: false, summary: repo.ai };
 }
 
-async function settingsRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
+async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(APR_CONFIG.apiBase + path, {
     ...options, signal: options.signal ?? AbortSignal.timeout(8000),
     headers: { 'content-type': 'application/json' },
   });
   if (!response.ok) {
     const body: unknown = await response.json().catch(() => null);
-    throw new Error(body && typeof body === 'object' && 'message' in body && typeof body.message === 'string' ? body.message : 'The settings API is unavailable. Try again.');
+    throw new Error(body && typeof body === 'object' && 'message' in body && typeof body.message === 'string' ? body.message : 'The API is unavailable. Try again.');
   }
   return response.json() as Promise<T>;
 }
-export const getSettings = () => settingsRequest<ReviewerSettings>('/api/settings');
-export const saveSettings = (settings: ReviewerSettings) => settingsRequest<ReviewerSettings>('/api/settings', { method: 'PUT', body: JSON.stringify(settings) });
-export const discoverModels = (lmStudioBaseUrl: string, signal: AbortSignal) => settingsRequest<{ models: LocalModel[] }>('/api/settings/models', { method: 'POST', body: JSON.stringify({ lmStudioBaseUrl }), signal });
+export const getSettings = () => apiRequest<ReviewerSettings>('/api/settings');
+export const saveSettings = (settings: ReviewerSettings) => apiRequest<ReviewerSettings>('/api/settings', { method: 'PUT', body: JSON.stringify(settings) });
+export const discoverModels = (lmStudioBaseUrl: string, signal: AbortSignal) => apiRequest<{ models: LocalModel[] }>('/api/settings/models', { method: 'POST', body: JSON.stringify({ lmStudioBaseUrl }), signal });
+
+export const listRepositories = () => apiRequest<RepositorySummary[]>('/api/repositories');
+export const connectRepository = (url: string) => apiRequest<RepositorySummary>('/api/repos', { method: 'POST', body: JSON.stringify({ url }) });
+export const enqueueReview = (id: string) => apiRequest<{ jobId: string; status: ReviewJobStatus }>(`/api/repos/${encodeURIComponent(id)}/rerun`, { method: 'POST' });

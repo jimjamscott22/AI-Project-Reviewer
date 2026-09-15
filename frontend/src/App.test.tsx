@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
-import { load, ping } from './data/api';
+import { load, ping, listRepositories } from './data/api';
 import { APR_SAMPLE } from './data/sampleData';
 
 vi.mock('./data/api', async (importOriginal) => {
@@ -12,6 +12,7 @@ vi.mock('./data/api', async (importOriginal) => {
     load: vi.fn(),
     ping: vi.fn(),
     rerun: vi.fn(),
+    listRepositories: vi.fn(),
   };
 });
 
@@ -19,6 +20,7 @@ describe('App review-data boundary', () => {
   beforeEach(() => {
     localStorage.clear();
     vi.mocked(ping).mockResolvedValue(null);
+    vi.mocked(listRepositories).mockResolvedValue([]);
   });
 
   it('moves from loading to a safe empty state and repository action', async () => {
@@ -33,7 +35,7 @@ describe('App review-data boundary', () => {
     expect(await screen.findByRole('heading', { name: 'No reviews yet' })).toBeVisible();
 
     fireEvent.click(screen.getByRole('button', { name: 'View repositories' }));
-    expect(await screen.findByRole('heading', { name: 'Repositories is the next milestone' })).toBeVisible();
+    expect(await screen.findByRole('heading', { name: 'Connect a repository' })).toBeVisible();
   });
 
   it('labels embedded sample reviews when the API is unavailable', async () => {
