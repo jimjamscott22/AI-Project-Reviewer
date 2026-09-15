@@ -10,7 +10,7 @@ import { SettingsScreen } from './screens/SettingsScreen';
 import { RepositoriesScreen } from './screens/RepositoriesScreen';
 import { load, ping, rerun as rerunApi } from './data/api';
 import { APR_SAMPLE } from './data/sampleData';
-import type { Repo, ScreenId, ReviewerSettings } from './data/types';
+import type { Repo, ScreenId, ReviewerSettings, RepoDataStatus } from './data/types';
 
 function screenForPath(pathname: string): ScreenId {
   if (pathname.startsWith('/reviews')) return 'reviews';
@@ -24,6 +24,7 @@ export default function App() {
   const [theme, setTheme] = useState<'dark' | 'light'>(() => (localStorage.getItem('apr-theme') as 'dark' | 'light') || 'dark');
   const [repos, setRepos] = useState<Repo[]>(APR_SAMPLE);
   const [loading, setLoading] = useState(true);
+  const [dataStatus, setDataStatus] = useState<RepoDataStatus>('live');
   const [db, setDb] = useState(false);
   const [llm, setLlm] = useState(false);
   const [llmModel, setLlmModel] = useState('Ollama');
@@ -41,7 +42,7 @@ export default function App() {
 
   const refreshRepos = () => {
     load().then((r) => {
-      setDb(r.live);
+      setDataStatus(r.status);
       setRepos(r.repos);
     });
   };
@@ -51,7 +52,7 @@ export default function App() {
     load()
       .then((r) => {
         if (!active) return;
-        setDb(r.live);
+        setDataStatus(r.status);
         setRepos(r.repos);
       })
       .finally(() => {
@@ -97,6 +98,17 @@ export default function App() {
     if (loading) {
       return <EmptyState icon="arrows-clockwise" title="Loading reviews" body="Checking the local review API…" busy />;
     }
+    if (dataStatus === 'error') {
+      return (
+        <EmptyState
+          icon="wifi-slash"
+          title="Can't reach the review API"
+          body="The review API is unreachable, so no review data can be shown. Check that the API and MariaDB service are running, then retry."
+          actionLabel="Retry"
+          onAction={refreshRepos}
+        />
+      );
+    }
     if (!repos.length) {
       return (
         <EmptyState
@@ -110,9 +122,9 @@ export default function App() {
     }
     return (
       <>
-        {!db && (
+        {dataStatus === 'demo' && (
           <div className="apr-data-notice" role="status">
-            Embedded demo reviews are shown because the local MariaDB API is unavailable.
+            Demo mode is on — these are embedded sample reviews, not live data. Disable VITE_DEMO_MODE and connect the API to review real repositories.
           </div>
         )}
         {content}

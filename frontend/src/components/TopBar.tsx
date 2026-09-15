@@ -29,7 +29,7 @@ export function TopBar({ screen, go, theme, setTheme, rerun, running, generated,
         <h5 style={{ margin: 0 }}>{TITLES[screen]}</h5>
       )}
       <span className="apr-top-spacer" />
-      <Chip ok={db} icon="database" label="mariadb @ pi" offlineLabel="MariaDB is unreachable; embedded demo reviews are displayed." />
+      <Chip ok={db} icon="database" label="mariadb @ pi" offlineLabel="MariaDB is unreachable." />
       <Chip ok={llm} icon="cpu" label={`${llmProvider}: ${llmModel || 'Template summaries'}`} offlineLabel={`${llmProvider}: ${llmModel || 'Template summaries'} — unavailable or disabled; review summaries use API fallback text.`} />
       {screen === 'reviews' && (
         <span className="text-muted apr-generated" style={{ fontSize: 13 }}>

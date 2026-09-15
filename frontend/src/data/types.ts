@@ -81,6 +81,8 @@ export interface RepositorySummary {
   latestJob: Pick<ReviewJob, 'id' | 'status' | 'error'> | null;
 }
 
+export type RepoDataStatus = 'live' | 'demo' | 'error';
+
 export type ScreenId = 'dashboard' | 'repos' | 'reviews' | 'insights' | 'settings';
 export type TabId = 'ai' | 'quality' | 'structure' | 'deps' | 'security';
 

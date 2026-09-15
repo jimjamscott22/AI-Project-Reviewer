@@ -24,7 +24,7 @@ describe('App review-data boundary', () => {
   });
 
   it('moves from loading to a safe empty state and repository action', async () => {
-    vi.mocked(load).mockResolvedValue({ live: true, repos: [] });
+    vi.mocked(load).mockResolvedValue({ status: 'live', repos: [] });
     render(
       <MemoryRouter>
         <App />
@@ -38,15 +38,27 @@ describe('App review-data boundary', () => {
     expect(await screen.findByRole('heading', { name: 'Connect a repository' })).toBeVisible();
   });
 
-  it('labels embedded sample reviews when the API is unavailable', async () => {
-    vi.mocked(load).mockResolvedValue({ live: false, repos: APR_SAMPLE });
+  it('labels embedded sample reviews when demo mode is on', async () => {
+    vi.mocked(load).mockResolvedValue({ status: 'demo', repos: APR_SAMPLE });
     render(
       <MemoryRouter>
         <App />
       </MemoryRouter>,
     );
 
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Embedded demo reviews'));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Demo mode is on'));
     expect(screen.getByRole('heading', { name: 'Recent reviews' })).toBeVisible();
+  });
+
+  it('shows an honest error, not fake data, when the API is unreachable and demo mode is off', async () => {
+    vi.mocked(load).mockResolvedValue({ status: 'error', repos: [] });
+    render(
+      <MemoryRouter>
+        <App />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole('heading', { name: "Can't reach the review API" })).toBeVisible();
+    expect(screen.queryByText(APR_SAMPLE[0].name)).not.toBeInTheDocument();
   });
 });
