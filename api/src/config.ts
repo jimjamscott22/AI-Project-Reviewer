@@ -19,6 +19,9 @@ export const config = {
   port: Number(required('PORT', '8080')),
   corsOrigin: required('CORS_ORIGIN', 'http://localhost:5173'),
   nodeEnv: required('NODE_ENV', 'development'),
+  // Set by the production Docker image to serve the built frontend from the
+  // same origin as the API. Empty in local dev, where Vite serves the SPA.
+  staticDir: required('STATIC_DIR', '').trim(),
   auth: {
     // Empty token preserves LAN-open behavior; setting it protects mutation/data/settings routes.
     token: required('AUTH_TOKEN', ''),

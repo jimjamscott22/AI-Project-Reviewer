@@ -1,5 +1,7 @@
+import path from 'node:path';
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
+import staticFiles from '@fastify/static';
 import Fastify, { type FastifyInstance } from 'fastify';
 import { config } from './config.js';
 import { SESSION_COOKIE_NAME, authEnabled, touchSession } from './lib/auth.js';
@@ -82,6 +84,22 @@ export async function buildServer(options: BuildServerOptions = {}): Promise<Fas
   await app.register(repoRoutes);
   await app.register(jobRoutes);
   await app.register(settingsRoutes);
+
+  if (config.staticDir) {
+    const staticRoot = path.resolve(config.staticDir);
+    await app.register(staticFiles, { root: staticRoot, index: 'index.html' });
+
+    // Any GET that doesn't match a static asset or a registered /api/* route
+    // is an SPA client-side route (e.g. /reviews/some-repo) and gets the app
+    // shell; a miss under /api/* stays a real 404 instead of falling back.
+    app.setNotFoundHandler((request, reply) => {
+      if (request.url.startsWith('/api/')) {
+        reply.code(404).send({ error: 'not_found', message: 'Not found.' });
+        return;
+      }
+      reply.type('text/html').sendFile('index.html');
+    });
+  }
 
   return app;
 }
