@@ -3,12 +3,14 @@ import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-
 import { Sidebar } from './components/Sidebar';
 import { TopBar } from './components/TopBar';
 import { EmptyState } from './components/EmptyState';
+import { Icon } from './components/Icon';
 import { Dashboard } from './screens/Dashboard';
 import { InsightsScreen } from './screens/InsightsScreen';
 import { ReviewRoute } from './screens/ReviewRoute';
 import { SettingsScreen } from './screens/SettingsScreen';
 import { RepositoriesScreen } from './screens/RepositoriesScreen';
-import { load, ping, rerun as rerunApi } from './data/api';
+import { LoginScreen } from './screens/LoginScreen';
+import { getSessionStatus, load, logout, ping, rerun as rerunApi } from './data/api';
 import { APR_SAMPLE } from './data/sampleData';
 import type { Repo, ScreenId, ReviewerSettings, RepoDataStatus } from './data/types';
 
@@ -32,6 +34,9 @@ export default function App() {
   const [running, setRunning] = useState(false);
   const [generated, setGenerated] = useState('2 hours ago');
   const [summary, setSummary] = useState<string | null>(null);
+  const [checkingSession, setCheckingSession] = useState(true);
+  const [authRequired, setAuthRequired] = useState(false);
+  const [unlocked, setUnlocked] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -48,6 +53,28 @@ export default function App() {
   };
 
   useEffect(() => {
+    let active = true;
+    getSessionStatus()
+      .then((status) => {
+        if (!active) return;
+        setAuthRequired(status.authRequired);
+        setUnlocked(!status.authRequired || status.authenticated);
+      })
+      .catch(() => {
+        // The session check itself failing (API unreachable) shouldn't trap the
+        // user behind a login wall; load()/ping() below will report the real error.
+        if (active) setUnlocked(true);
+      })
+      .finally(() => {
+        if (active) setCheckingSession(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!unlocked) return;
     let active = true;
     load()
       .then((r) => {
@@ -68,7 +95,12 @@ export default function App() {
     return () => {
       active = false;
     };
-  }, []);
+  }, [unlocked]);
+
+  const signOut = () => {
+    void logout().catch(() => {});
+    setUnlocked(false);
+  };
 
   const settingsSaved = (settings: ReviewerSettings) => {
     setLlmProvider(settings.inferenceProvider === 'lmstudio' ? 'LM Studio' : settings.inferenceProvider === 'disabled' ? 'Disabled' : 'Ollama');
@@ -142,9 +174,21 @@ export default function App() {
     setRunning(false);
   };
 
+  if (checkingSession) {
+    return (
+      <div style={{ display: 'grid', placeItems: 'center', minHeight: '100vh' }}>
+        <Icon n="arrows-clockwise" size={28} style={{ animation: 'apr-spin 1s linear infinite', opacity: 0.6 }} />
+      </div>
+    );
+  }
+
+  if (authRequired && !unlocked) {
+    return <LoginScreen onAuthenticated={() => setUnlocked(true)} />;
+  }
+
   return (
     <div className="apr-app">
-      <Sidebar screen={screen} go={go} />
+      <Sidebar screen={screen} go={go} authRequired={authRequired} onSignOut={signOut} />
       <div className="apr-body">
         <TopBar screen={screen} go={go} theme={theme} setTheme={setTheme} rerun={rerun} running={running} generated={generated} db={db} llm={llm} llmModel={llmModel} llmProvider={llmProvider} />
         <Routes>

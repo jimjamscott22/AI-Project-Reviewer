@@ -124,7 +124,10 @@ Copy [`api/.env.example`](api/.env.example) to `api/.env` and configure:
 | Variable | Default | Purpose |
 | --- | --- | --- |
 | `PORT` | `8080` | API listen port |
-| `CORS_ORIGIN` | `http://localhost:5173` | Allowed frontend origin |
+| `CORS_ORIGIN` | `http://localhost:5173` | Allowed frontend origin (credentialed, exact match) |
+| `NODE_ENV` | `development` | Set to `production` to mark the session cookie `Secure` |
+| `AUTH_TOKEN` | empty | Optional single-user access token. Empty keeps the API LAN-open (no login); setting it requires a matching token before any route other than `/api/health` and `/api/session*` is reachable |
+| `AUTH_SESSION_TTL_MS` | `43200000` | Sliding session lifetime (12h) once signed in |
 | `DB_HOST` | `localhost` | MariaDB host |
 | `DB_PORT` | `3306` | MariaDB port |
 | `DB_USER` | `apr` | MariaDB user |
@@ -155,8 +158,9 @@ Vite reads these variables at startup:
 | Variable | Development value | Purpose |
 | --- | --- | --- |
 | `VITE_API_BASE` | `http://localhost:8080` | Fastify API base URL |
+| `VITE_DEMO_MODE` | unset | Set to `true` to fall back to embedded sample data when the API is unreachable; otherwise an unreachable API shows an honest error |
 
-The checked-in [`frontend/.env.development`](frontend/.env.development) sets the local API URL. The browser never receives an Ollama base URL or contacts port 11434 directly.
+The checked-in [`frontend/.env.development`](frontend/.env.development) sets the local API URL. The browser never receives an Ollama base URL or contacts port 11434 directly. All requests are sent with `credentials: 'include'` so the optional session cookie (see `AUTH_TOKEN` above) is carried when set.
 
 ## API
 
@@ -173,6 +177,11 @@ The implemented API surface is:
 | `POST` | `/api/repos` | Register repository metadata |
 | `POST` | `/api/repos/:id/rerun` | Create or reuse the repository's active durable review job |
 | `GET` | `/api/jobs/:id` | Poll durable review-job state |
+| `GET` | `/api/session` | Report whether a token is required and whether the caller is currently signed in |
+| `POST` | `/api/session/login` | Exchange `AUTH_TOKEN` for an HttpOnly session cookie (rate-limited; 404 when auth is disabled) |
+| `POST` | `/api/session/logout` | Clear the caller's session |
+
+When `AUTH_TOKEN` is unset the API stays LAN-open and every route above is reachable without a session. When it's set, `/api/health` and the `/api/session*` routes stay reachable, but every other route requires the session cookie issued by a successful login.
 
 Example:
 

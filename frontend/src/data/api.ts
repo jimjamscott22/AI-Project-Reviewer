@@ -1,4 +1,4 @@
-import type { HealthStatus, Repo, ReviewerSettings, LocalModel, RepositorySummary, ReviewJobStatus, RepoDataStatus } from './types';
+import type { HealthStatus, Repo, ReviewerSettings, LocalModel, RepositorySummary, ReviewJobStatus, RepoDataStatus, SessionStatus } from './types';
 import { APR_SAMPLE } from './sampleData';
 
 // The browser talks only to Fastify. Repository review and Ollama access remain
@@ -18,7 +18,7 @@ export async function ping(): Promise<HealthStatus | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 2_000);
   try {
-    const response = await fetch(APR_CONFIG.apiBase + '/api/health', { signal: controller.signal, mode: 'cors' });
+    const response = await fetch(APR_CONFIG.apiBase + '/api/health', { signal: controller.signal, mode: 'cors', credentials: 'include' });
     return response.ok ? await response.json() as HealthStatus : null;
   } catch {
     return null;
@@ -31,7 +31,7 @@ export async function load(): Promise<{ status: RepoDataStatus; repos: Repo[] }>
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 1_500);
   try {
-    const r = await fetch(APR_CONFIG.apiBase + '/api/repos', { signal: controller.signal });
+    const r = await fetch(APR_CONFIG.apiBase + '/api/repos', { signal: controller.signal, credentials: 'include' });
     if (r.ok) return { status: 'live', repos: await r.json() };
   } catch {
     // fall through below
@@ -48,6 +48,7 @@ export async function rerun(repo: Repo): Promise<{ queued: boolean; summary: str
     const response = await fetch(`${APR_CONFIG.apiBase}/api/repos/${encodeURIComponent(repo.id)}/rerun`, {
       method: 'POST',
       signal: controller.signal,
+      credentials: 'include',
       headers: { 'content-type': 'application/json' },
     });
     if (response.ok) return { queued: true, summary: 'A persisted review has been queued. Its updated narrative will appear after the worker completes.' };
@@ -62,6 +63,7 @@ export async function rerun(repo: Repo): Promise<{ queued: boolean; summary: str
 async function apiRequest<T>(path: string, options: RequestInit = {}): Promise<T> {
   const response = await fetch(APR_CONFIG.apiBase + path, {
     ...options, signal: options.signal ?? AbortSignal.timeout(8000),
+    credentials: 'include',
     headers: { 'content-type': 'application/json' },
   });
   if (!response.ok) {
@@ -77,3 +79,7 @@ export const discoverModels = (lmStudioBaseUrl: string, signal: AbortSignal) => 
 export const listRepositories = () => apiRequest<RepositorySummary[]>('/api/repositories');
 export const connectRepository = (url: string) => apiRequest<RepositorySummary>('/api/repos', { method: 'POST', body: JSON.stringify({ url }) });
 export const enqueueReview = (id: string) => apiRequest<{ jobId: string; status: ReviewJobStatus }>(`/api/repos/${encodeURIComponent(id)}/rerun`, { method: 'POST' });
+
+export const getSessionStatus = () => apiRequest<SessionStatus>('/api/session');
+export const login = (token: string) => apiRequest<{ authenticated: true }>('/api/session/login', { method: 'POST', body: JSON.stringify({ token }) });
+export const logout = () => apiRequest<{ authenticated: false }>('/api/session/logout', { method: 'POST' });

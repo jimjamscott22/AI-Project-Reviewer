@@ -83,6 +83,11 @@ export interface RepositorySummary {
 
 export type RepoDataStatus = 'live' | 'demo' | 'error';
 
+export interface SessionStatus {
+  authRequired: boolean;
+  authenticated: boolean;
+}
+
 export type ScreenId = 'dashboard' | 'repos' | 'reviews' | 'insights' | 'settings';
 export type TabId = 'ai' | 'quality' | 'structure' | 'deps' | 'security';
 
