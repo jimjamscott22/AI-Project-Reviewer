@@ -2,7 +2,7 @@
 
 AI Project Reviewer is a self-hosted dashboard for evaluating software repositories and turning review data into practical, portfolio-focused feedback. It presents an overall score, category scores, strengths, improvement areas, recommended next steps, dependency and security findings, and cross-repository insights.
 
-The project is designed to run on a local network with MariaDB for persistence and Ollama for local AI summaries. No hosted application or cloud AI service is required.
+The project is designed to run on a local network with MariaDB for persistence and a local inference server (Ollama or LM Studio) for AI summaries. No hosted application or cloud AI service is required.
 
 ![AI Project Reviewer review screen](design_handoff_ai_project_reviewer/screenshots/01-review-dark.png)
 
@@ -24,7 +24,8 @@ The project is designed to run on a local network with MariaDB for persistence a
 - Repositories screen to connect a public GitHub URL, watch queued/running/reviewed status live, and run or re-run reviews
 - Opt-in demo mode (`VITE_DEMO_MODE=true`) for showing embedded sample reviews without a live API; otherwise an unreachable API is reported honestly, never silently masked
 - Optional single-user token authentication (`AUTH_TOKEN`), gating the API behind an HttpOnly session cookie while staying LAN-open by default
-- Optional API-owned Ollama narratives with strict validation, one malformed-output retry, and deterministic fallback
+- Optional API-owned local-model narratives (Ollama or LM Studio) with strict validation, one malformed-output retry, and deterministic fallback
+- Settings screen to choose the inference provider and model, saved in MariaDB and applied without an API restart (see [Local Inference](#local-inference))
 - Docker Compose packaging that serves the API and built frontend from one origin, with MariaDB and an optional bundled-Ollama profile, for Raspberry Pi deployment
 
 ## Screenshots
@@ -48,10 +49,10 @@ React + Vite frontend
     |                                           |-- bounded public Git clone/cache
     |                                           |-- safe deterministic analysis
     |                                           |-- registry freshness lookups
-    |                                           +-- bounded narrative -----> Ollama (optional, local)
+    |                                           +-- bounded narrative -----> Ollama or LM Studio (optional, local)
 
 If the API cannot be reached, the frontend shows an honest error state (or embedded sample reviews, only when VITE_DEMO_MODE=true).
-If Ollama is disabled or unreachable, the worker persists the complete deterministic template narrative.
+If local inference is disabled or unreachable, the worker persists the complete deterministic template narrative.
 ```
 
 ### Technology Stack
@@ -61,23 +62,23 @@ If Ollama is disabled or unreachable, the worker persists the complete determini
 | Frontend | React, Vite, TypeScript, React Router, plain CSS |
 | API | Node.js, Fastify, TypeScript |
 | Database | MariaDB through `mysql2/promise` |
-| Local AI | API-owned Ollama `/api/generate` client with validated JSON fallback |
+| Local AI | API-owned Ollama or LM Studio client with validated JSON fallback |
 | Icons | Phosphor Icons |
 
 ## Quick Start
 
 ### Standalone Frontend
 
-The fastest way to explore the interface is to run the frontend by itself. It automatically uses the five embedded sample reviews when the API is unavailable.
+The fastest way to explore the interface is to run the frontend by itself in demo mode, which shows the five embedded sample reviews instead of calling the API. Without `VITE_DEMO_MODE=true`, an unreachable API is reported as an error rather than masked with sample data.
 
 ```bash
 git clone https://github.com/jimjamscott22/AI-Project-Reviewer.git
 cd AI-Project-Reviewer/frontend
 npm install
-npm run dev
+VITE_DEMO_MODE=true npm run dev
 ```
 
-Open <http://localhost:5173>.
+On Windows PowerShell, set the variable first: `$env:VITE_DEMO_MODE = 'true'; npm run dev`. Open <http://localhost:5173>.
 
 ### Frontend with MariaDB
 
@@ -245,12 +246,18 @@ Copy [`api/.env.example`](api/.env.example) to `api/.env` and configure:
 | `REGISTRY_MAX_PACKAGES` | `30` | Maximum dependency lookups per review |
 | `WORKER_POLL_MS` | `1000` | Durable queue poll interval |
 | `GITLEAKS_PATH` | empty | Optional explicitly pinned gitleaks binary path |
-| `OLLAMA_BASE_URL` | `http://localhost:11434` | API-side Ollama base URL; empty disables model calls |
+| `OLLAMA_BASE_URL` | `http://localhost:11434` | API-side Ollama base URL; empty disables Ollama calls |
 | `OLLAMA_MODEL` | `llama3.1` | Ollama model used by the worker |
 | `OLLAMA_TIMEOUT_MS` | `45000` | Narrative request timeout |
 | `OLLAMA_HEALTH_TIMEOUT_MS` | `1500` | Health-probe timeout |
 | `OLLAMA_MAX_PROMPT_BYTES` | `12288` | Maximum deterministic-evidence prompt size |
-| `OLLAMA_MAX_RESPONSE_BYTES` | `65536` | Maximum Ollama response size |
+| `OLLAMA_MAX_RESPONSE_BYTES` | `65536` | Maximum model response size |
+| `LMSTUDIO_BASE_URL` | `http://localhost:1234` | API-side LM Studio server root (no `/v1`) |
+| `LMSTUDIO_MODEL` | empty | LM Studio model used by the worker |
+| `LMSTUDIO_API_TOKEN` | empty | Optional LM Studio bearer token; never returned to the browser |
+| `LMSTUDIO_TIMEOUT_MS` | `120000` | LM Studio narrative request timeout |
+
+Provider, URL and model values saved on the Settings screen are stored in MariaDB and override these environment defaults. See [Local Inference](#local-inference).
 
 ### Frontend
 
@@ -263,15 +270,28 @@ Vite reads these variables at startup:
 
 The checked-in [`frontend/.env.development`](frontend/.env.development) sets the local API URL. The browser never receives an Ollama base URL or contacts port 11434 directly. All requests are sent with `credentials: 'include'` so the optional session cookie (see `AUTH_TOKEN` above) is carried when set.
 
+## Local Inference
+
+Open **Settings → Local inference** to select **Ollama**, **LM Studio**, or **Disabled** (deterministic template summaries). For LM Studio, enter its server URL, choose a downloaded text-generation model, and click **Save settings**. **Refresh models** reloads the list without changing saved settings. Embedding models are excluded. The picker does not download or load models, so unloaded models need just-in-time loading enabled in LM Studio or must be loaded there manually.
+
+Selections are stored in MariaDB and override the environment defaults without an API restart. Each review snapshots the settings when its worker starts, so an active review keeps its selection. Each provider retains its own URL and model.
+
+The URL must be reachable **from the API server**, not just your browser. For an API on a Raspberry Pi and LM Studio on a desktop, use the desktop's LAN address and enable LM Studio's network server access; `localhost:1234` means the API's own machine. Enter the server root URL without `/v1`. Model discovery uses LM Studio's `/api/v1/models` endpoint, so use a version that supports it.
+
+If LM Studio requires authentication, set `LMSTUDIO_API_TOKEN` in the API environment and restart the API. Existing `OLLAMA_*` defaults remain supported, and existing installations keep using Ollama until the provider is changed in Settings.
+
+Connection or authentication failures appear in Settings, and saved models are retained even when unavailable. If narrative generation fails, the worker falls back to the validated deterministic template. Scores always come from repository analysis, never from the model.
+
 ## API
 
 The implemented API surface is:
 
 | Method | Endpoint | Description |
 | --- | --- | --- |
-| `GET` | `/api/health` | Check database, worker, and non-secret Ollama capability state |
-| `GET` | `/api/settings` | Read API-owned Ollama base URL and model settings |
-| `PUT` | `/api/settings` | Validate and persist API-owned Ollama settings |
+| `GET` | `/api/health` | Check database, worker, and non-secret inference-provider capability state |
+| `GET` | `/api/settings` | Read the API-owned inference provider, URLs and models |
+| `PUT` | `/api/settings` | Validate and persist inference settings |
+| `POST` | `/api/settings/models` | List downloaded text-generation models from an LM Studio server URL |
 | `GET` | `/api/repos` | List repositories with their latest reviews |
 | `GET` | `/api/repos/:id` | Get one repository and its latest review |
 | `GET` | `/api/repositories` | List every registered repository, including unreviewed entries and latest job state |
@@ -310,34 +330,41 @@ Run commands from the relevant workspace directory.
 | `frontend/` | `npm run dev` | Start the Vite development server |
 | `frontend/` | `npm run build` | Type-check and create a production build |
 | `frontend/` | `npm run lint` | Lint frontend source files |
+| `frontend/` | `npm test` | Run the Vitest component and unit tests |
 | `frontend/` | `npm run preview` | Preview the production build |
 | `api/` | `npm run dev` | Start the API with file watching |
 | `api/` | `npm run build` | Compile TypeScript into `api/dist/` |
 | `api/` | `npm start` | Run the compiled API |
-| `api/` | `npm run typecheck` | Type-check without emitting files |
+| `api/` | `npm run typecheck` | Type-check source and tests without emitting files |
 | `api/` | `npm run lint` | Lint API source files |
+| `api/` | `npm test` | Run the unit and route tests (no database or Ollama needed) |
+| `api/` | `npm run test:integration`, `test:worker-integration`, `test:ollama-integration`, `test:inference-integration` | Integration suites that need a live MariaDB and/or a local inference server |
 | `api/` | `npm run migrate` | Create the database and apply the schema |
 | `api/` | `npm run seed` | Load the bundled sample reviews |
 
-There is not yet an automated test suite. The current validation baseline is linting, API type-checking, and production builds for both workspaces.
+The validation baseline is `npm run lint`, `npm test` and `npm run build` in `frontend/`, plus `npm run lint`, `npm run typecheck` and `npm test` in `api/`.
 
 ## Project Structure
 
 ```text
 .
 |-- api/                              Fastify API and MariaDB access
-|   |-- src/db/                       schema, migrations, queries, and seed data
-|   |-- src/routes/                   health and repository routes
+|   |-- src/db/                       schema, migrations, queries, jobs, settings, and seed data
+|   |-- src/review/                   workspace, analysis, scoring, narrative, and worker pipeline
+|   |-- src/routes/                   health, repository, job, settings, and session routes
+|   |-- src/lib/                      auth, GitHub URL, and inference-provider helpers
+|   |-- test/                         unit, route, and integration tests
 |   `-- src/types.ts                  API response model
 |-- frontend/                         React application
 |   |-- src/components/               shared interface components
 |   |-- src/data/                     API adapter, types, and sample reviews
-|   |-- src/screens/                  dashboard, review, and insights screens
+|   |-- src/screens/                  dashboard, review, insights, repositories, settings, and login screens
 |   `-- src/styles/                   Nocturne tokens and application styles
 |-- design_handoff_ai_project_reviewer/
 |   |-- prototype/                    original interactive design reference
 |   |-- screenshots/                  approved screen references
 |   `-- IMPLEMENTATION_PLAN.md         milestone roadmap and target architecture
+|-- docs/                             implementation plan, checkpoints, and state reviews
 |-- scripts/
 |   `-- docker-smoke-test.sh          end-to-end Compose smoke test (run on a machine with registry access)
 |-- Dockerfile                        multi-stage build: frontend + API into one runtime image
@@ -362,32 +389,3 @@ See the original [implementation plan](design_handoff_ai_project_reviewer/IMPLEM
 ## License
 
 Licensed under the [Apache License 2.0](LICENSE).
-
-### Choose a local inference model
-
-Open **Settings → Local inference** to select **Ollama**, **LM Studio**, or
-**Disabled** (deterministic template summaries). For LM Studio, enter its server
-URL, choose a downloaded text-generation model, and click **Save settings**.
-**Refresh models** reloads the list without changing saved settings. Unloaded
-models require just-in-time loading enabled in LM Studio or manual loading there.
-Embedding models are excluded. The picker does not download or load models.
-
-Selections are stored in MariaDB and override environment defaults without an API
-restart. Each review snapshots the settings when its worker starts; an active
-review keeps its selection. Each provider retains its own URL and model.
-
-The URL must be reachable **from the API server**, not just your browser. For an
-API running on a Raspberry Pi and LM Studio on a desktop, use the desktop's LAN
-address and enable LM Studio's network server access. `localhost:1234` means the
-API's own machine. Enter the server root URL without `/v1`. Model discovery uses
-LM Studio's `/api/v1/models` API; use a version supporting that endpoint.
-
-Optional API environment defaults: `LMSTUDIO_BASE_URL`, `LMSTUDIO_MODEL`, and
-`LMSTUDIO_TIMEOUT_MS` (120000 by default). If LM Studio requires authentication,
-set `LMSTUDIO_API_TOKEN` in the API environment and restart the API. This token is
-never returned to the browser. Existing `OLLAMA_*` defaults remain supported and
-existing installations continue using Ollama until changed in Settings.
-
-Connection or authentication failures appear in Settings; saved models are retained
-even when unavailable. Failed narrative generation retains the existing validated,
-deterministic template fallback. Scores remain based on repository analysis.
