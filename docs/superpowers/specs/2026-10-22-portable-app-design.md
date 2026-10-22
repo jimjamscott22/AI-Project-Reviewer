@@ -42,6 +42,22 @@ Fix: allow `host.docker.internal` and `gateway.docker.internal` through an expli
 
 Tests: extend the existing settings tests to cover accepted hosts (`host.docker.internal`, `gateway.docker.internal`, existing local forms) and rejected hosts (a public hostname, a look-alike such as `host.docker.internal.example.com`).
 
+### 2b. Native bind address (found while planning)
+
+`api/src/index.ts` calls `app.listen({ port, host: '0.0.0.0' })`, so a native `npm start` is reachable from the whole network regardless of the Compose port mapping. To make "localhost by default" true on both paths:
+
+- Add `HOST` to `api/src/config.ts`, default `127.0.0.1`, and have `index.ts` listen on `config.host`.
+- The container must still bind all interfaces for the published port to work, so the `Dockerfile` and `docker-compose.yml` set `HOST=0.0.0.0`. Compose's `127.0.0.1:` publish prefix is what keeps the container private to the device.
+- Exposing a native install to the LAN means setting `HOST=0.0.0.0` (documented with `AUTH_TOKEN` in "Exposing to your LAN").
+
+### 2c. Session cookie over plain-HTTP LAN access (found while planning)
+
+`api/src/routes/auth.ts` sets `secure: config.nodeEnv === 'production'`, and the container always runs with `NODE_ENV=production`. Browsers store `Secure` cookies on `http://localhost` but discard them on `http://<lan-ip>`, so LAN exposure with `AUTH_TOKEN` would log in successfully and then lose the session on every request.
+
+- Add `AUTH_COOKIE_SECURE` (`true` / `false`; empty or unset keeps today's behavior: secure in production).
+- The "Exposing to your LAN" section documents setting `AUTH_COOKIE_SECURE=false` only for plain-HTTP LAN use, notes that the token then travels unencrypted on the local network, and recommends an HTTPS reverse proxy as the better option.
+- Pass the variable through `docker-compose.yml`.
+
 ### 3. Documentation
 
 | File | Change |
