@@ -398,25 +398,52 @@ Expected: no match for a service named `ollama` (only the `OLLAMA_*` variable li
 
 - [ ] **Step 4: Update the root `.env.example` (owner action)**
 
-The agent cannot read this file. Ask the owner to either paste its current contents or apply this by hand:
-
-1. Delete any comment or setting that refers to the bundled Ollama container or the `with-ollama` profile, and any `OLLAMA_BASE_URL=http://ollama:11434` line.
-2. Make sure these keys exist (add any that are missing), with these example values:
+The agent cannot read or edit this file (permission deny rule). The owner pasted its contents on 2026-10-22, so the exact replacement is below. Ask the owner to either replace the file's contents with this block by hand, or lift the deny rule so the agent can write it. The changes versus the current file: the Pi hostname hint and "LAN-open" wording are gone, the `with-ollama` comment is gone, and `AUTH_COOKIE_SECURE` and the `LMSTUDIO_*` keys are new. Every other line is unchanged.
 
 ```dotenv
-# Inference servers run on the host. host.docker.internal reaches it from the container.
+# Copy to .env before running `docker compose up`. These variables are read
+# by docker-compose.yml; see api/.env.example for the full set of variables
+# the API itself understands (most have sane defaults and don't need to be
+# repeated here).
+
+# Host port the app is published on, on this machine only
+# (http://localhost:<this>). See "Exposing to your LAN" in the README to
+# change that.
+API_PORT=8080
+
+# MariaDB credentials, shared between the mariadb and api services.
+DB_ROOT_PASSWORD=change-me-root
+DB_NAME=apr
+DB_USER=apr
+DB_PASSWORD=change-me
+
+# Optional single-user access token. Leave empty on a single-user local
+# install (no login). Set a long random value before exposing the app
+# beyond this device.
+AUTH_TOKEN=
+
+# Empty marks the session cookie Secure in production, which is correct for
+# localhost and HTTPS. Set to false ONLY for plain-HTTP LAN access, and only
+# together with AUTH_TOKEN; the token then travels unencrypted.
+AUTH_COOKIE_SECURE=
+
+# Origin allowed to call the API with credentials. The bundled frontend is
+# served from the same origin as the API, so the default below (matching
+# API_PORT) is normally correct; change it only if you put a reverse proxy
+# or a different frontend origin in front of this deployment.
+CORS_ORIGIN=http://localhost:8080
+
+# Local narrative generation. Ollama and LM Studio run natively on the host
+# (for GPU access); host.docker.internal reaches them from the container
+# (works on Linux via the extra_hosts entry in docker-compose.yml).
 OLLAMA_BASE_URL=http://host.docker.internal:11434
 OLLAMA_MODEL=llama3.1
 LMSTUDIO_BASE_URL=http://host.docker.internal:1234
 LMSTUDIO_MODEL=
 LMSTUDIO_API_TOKEN=
-# Leave empty on a single-user local install. Set a long random value before exposing the app to a LAN.
-AUTH_TOKEN=
-# Empty = secure cookies in production. Set to false only for plain-HTTP LAN access (see README).
-AUTH_COOKIE_SECURE=
 ```
 
-Mark this step done only after the owner confirms. If the owner declines, note it in the final summary.
+Mark this step done only after the file has been updated. If the owner declines, note it in the final summary; the stack still works because every variable has a default in `docker-compose.yml`.
 
 - [ ] **Step 5: Update the smoke test**
 
